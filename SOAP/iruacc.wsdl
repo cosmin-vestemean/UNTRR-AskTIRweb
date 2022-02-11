@@ -1,0 +1,78 @@
+<wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                  xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                  xmlns:tns="http://www.springframework.org/schema/beans"
+                  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                  xmlns:ns2="http://schemas.xmlsoap.org/soap/http"
+                  xmlns:ns1="http://www.asktirweb.org/services/TIRAccountingService-1"
+                  name="TIRAccountingService"
+                  targetNamespace="http://www.springframework.org/schema/beans">
+	<wsdl:import location="http://wsdemo.asktirweb.org/asktirweb-integration/services/TIRAccountingProxy-1?wsdl=TIRAccountingSEI.wsdl"
+	             namespace="http://www.asktirweb.org/services/TIRAccountingService-1"/>
+	<wsdl:binding name="TIRAccountingServiceSoapBinding"
+	              type="ns1:TIRAccountingSEI">
+		<soap:binding style="document"
+		              transport="http://schemas.xmlsoap.org/soap/http"/>
+		<wsdl:operation name="authorizeAndCaptureTIRCarnetIssuanceTransaction">
+			<soap:operation soapAction="http://iruendpoint.untrr.ro/UNTRRSOAPIRU/authorizeAndCaptureTIRCarnetIssuanceTransaction"
+			                style="document"/>
+			<wsdl:input name="authorizeAndCaptureTIRCarnetIssuanceTransaction">
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output name="authorizeAndCaptureTIRCarnetIssuanceTransactionResponse">
+				<soap:body use="literal"/>
+			</wsdl:output>
+			<wsdl:fault name="ServiceException">
+				<soap:fault name="ServiceException"
+				            use="literal"/>
+			</wsdl:fault>
+		</wsdl:operation>
+		<wsdl:operation name="authorizeTIRCarnetIssuanceTransaction">
+			<soap:operation soapAction="http://iruendpoint.untrr.ro/UNTRRSOAPIRU/authorizeTIRCarnetIssuanceTransaction"
+			                style="document"/>
+			<wsdl:input name="authorizeTIRCarnetIssuanceTransaction">
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output name="authorizeTIRCarnetIssuanceTransactionResponse">
+				<soap:body use="literal"/>
+			</wsdl:output>
+			<wsdl:fault name="ServiceException">
+				<soap:fault name="ServiceException"
+				            use="literal"/>
+			</wsdl:fault>
+		</wsdl:operation>
+		<wsdl:operation name="sendTIRCarnetReceiptAdvice">
+			<soap:operation soapAction="http://iruendpoint.untrr.ro/UNTRRSOAPIRU/sendTIRCarnetReceiptAdvice"
+			                style="document"/>
+			<wsdl:input name="sendTIRCarnetReceiptAdvice">
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output name="sendTIRCarnetReceiptAdviceResponse">
+				<soap:body use="literal"/>
+			</wsdl:output>
+			<wsdl:fault name="ServiceException">
+				<soap:fault name="ServiceException"
+				            use="literal"/>
+			</wsdl:fault>
+		</wsdl:operation>
+		<wsdl:operation name="sendTIRCarnetDespatchAdvice">
+			<soap:operation soapAction="http://iruendpoint.untrr.ro/UNTRRSOAPIRU/sendTIRCarnetDespatchAdvice"
+			                style="document"/>
+			<wsdl:input name="sendTIRCarnetDespatchAdvice">
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output name="sendTIRCarnetDespatchAdviceResponse">
+				<soap:body use="literal"/>
+			</wsdl:output>
+			<wsdl:fault name="ServiceException">
+				<soap:fault name="ServiceException"
+				            use="literal"/>
+			</wsdl:fault>
+		</wsdl:operation>
+	</wsdl:binding>
+	<wsdl:service name="UNTRRSOAPIRU">
+		<wsdl:port binding="tns:TIRAccountingServiceSoapBinding"
+		           name="TIRAccountingSEIPort">
+			<soap:address location="http://untrrsoapserver/WSSoapServer"/>
+		</wsdl:port>
+	</wsdl:service>
+</wsdl:definitions>
