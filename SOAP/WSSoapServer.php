@@ -321,13 +321,27 @@ class WSSoapServer
     public function sendTIRCarnetReceiptAdvice($params)
     {
         $this->log("sendTIRCarnetReceiptAdvice", $params); // log
-        return new SoapVar("sendTIRCarnetReceiptAdviceResponse", XSD_STRING);
+        //cod creare transfer in s1
+        $transactionEntryReference['_'] = '_';
+        $transactionEntryReference['type'] = 'type';
+        $transactionEntryReference['date'] = gmdate("Y-m-d\TH:i:s\Z");
+        
+        return [
+            "transactionEntryReference" => new SoapVar($transactionEntryReference, SOAP_ENC_OBJECT)
+        ];
     }
 
     public function sendTIRCarnetDespatchAdvice($params)
     {
         $this->log("sendTIRCarnetDespatchAdvice", $params); // log
-        return new SoapVar("sendTIRCarnetDespatchAdvice", XSD_STRING);
+        //cod creare transfer in s1
+        $transactionEntryReference['_'] = '_';
+        $transactionEntryReference['type'] = 'type';
+        $transactionEntryReference['date'] = gmdate("Y-m-d\TH:i:s\Z");
+        
+        return [
+            "transactionEntryReference" => new SoapVar($transactionEntryReference, SOAP_ENC_OBJECT)
+        ];
     }
 
     private function log($method_name, $data)
