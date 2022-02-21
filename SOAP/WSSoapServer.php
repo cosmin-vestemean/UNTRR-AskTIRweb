@@ -22,7 +22,7 @@ class WSSoapServer
     public function authorizeAndCaptureTIRCarnetIssuanceTransaction($params)
     {
         $this->log("authorizeAndCaptureTIRCarnetIssuanceTransaction", $params); // log
-                                                                                // connect to S1 WS
+        // connect to S1 WS
         $lr = $this->loginS1WS('webuser1', 'webuser123', '5001');
         $this->debug('login response', $lr);
         $clientID = $this->authS1WS($lr);
@@ -196,7 +196,6 @@ class WSSoapServer
                 "DATA": {
                     "SALDOC": [
                         {               
-                            "BRANCH": "'.$branch.'", 
                             "SERIES": ' . $series . ',            
                             "TRDR": '. $trdr .'                                
                         }
@@ -204,10 +203,8 @@ class WSSoapServer
                     "ITELINES": [
                         {
                             "MTRL": "'.$mtrl.'",
-                            "SNCODE": "'.$cccsnstart.'",
-							"QTY1": "'.$qty1.'",
                             "CCCSNSTART": "'.$cccsnstart.'",
-                            "CCCSNSTOP": "'.$cccsnstop.'"
+                            "QTY1": "'.$qty1.'"
                         }
                     ]
                 }
