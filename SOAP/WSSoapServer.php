@@ -28,9 +28,7 @@ class WSSoapServer
 
         // creaza factura in S1 din $params
         $doc = $this->getTIRCarnetDespatchAdvice($params);
-        $idDoc = $this->invoiceS1WS($clientID, $doc);
-
-        $this->debug('invoice response', $idDoc);
+        $this->invoiceS1WS($clientID, $doc);
 
         $transactionEntryReference['_'] = '_';
         $transactionEntryReference['type'] = 'type';
@@ -152,47 +150,18 @@ class WSSoapServer
         }
     }
 
-    private function authS1WS($lr)
+    private function authS1WS($login_response)
     {
-        $curl = curl_init();
+        $data = '{
+            "service": "authenticate",
+            "clientID": ' . $login_response['clientID'] . ',
+            "COMPANY": ' . $login_response['COMPANY'] . ',
+            "BRANCH": ' . $login_response['BRANCH'] . ',
+            "MODULE": ' . $login_response['MODULE'] . ',
+            "REFID": ' . $login_response['REFID'] . '
+        }';
 
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => 'https://dev-untrronline.oncloud.gr/s1services',
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => '{
-    "service": "authenticate",
-    "clientID": ' . $lr['clientID'] . ',
-    "COMPANY": ' . $lr['COMPANY'] . ',
-    "BRANCH": ' . $lr['BRANCH'] . ',
-    "MODULE": ' . $lr['MODULE'] . ',
-    "REFID": ' . $lr['REFID'] . '
-}',
-            CURLOPT_HTTPHEADER => array(
-                'Content-Type: application/json'
-            )
-        ));
-
-        $response = curl_exec($curl);
-        if ($response === false) {
-            return "Error in cURL : " . curl_error($curl);
-        }
-
-        curl_close($curl);
-
-        $arr = json_decode(utf8_encode($response), true);
-        if ($arr['success'] == 1) {
-            return $arr['clientID'];
-        } else {
-            return "Eroare autentificare.";
-        }
+        $this->talkToS1WS($data);
     }
 
     private function invoiceS1WS($clientID, $doc)
@@ -241,6 +210,11 @@ class WSSoapServer
 
         $this->debug('document s1', $s1Doc);
 
+        return $this->talkToS1WS($s1Doc, true);
+    }
+
+    private function talkToS1WS($data, $isId)
+    {
         $curl = curl_init();
 
         curl_setopt_array($curl, array(
@@ -254,7 +228,7 @@ class WSSoapServer
             CURLOPT_SSL_VERIFYHOST => false,
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => $s1Doc,
+            CURLOPT_POSTFIELDS => $data,
             CURLOPT_HTTPHEADER => array(
                 'Content-Type: application/json'
             )
@@ -269,12 +243,17 @@ class WSSoapServer
         curl_close($curl);
 
         $arr = json_decode(utf8_encode($response), true);
-        $this->debug('vanzare', $arr);
+        $this->debug('S1 WS response', $arr);
         if ($arr['success'] == 1) {
-            return $arr['id'];
+            if ($isId)
+                $ret = $arr['id'];
+            else
+                $ret = $arr['clientID'];
         } else {
-            return "Eroare introducere document.\r\nEroarea:" . $arr['error'] . "\r\nDetalii:" . utf8_encode($response);
+            $ret = $arr['error'] . "\r\nDetalii:" . utf8_encode($response);
         }
+
+        return $ret;
     }
 
     private function voletiToMtrl($voleti_count)
