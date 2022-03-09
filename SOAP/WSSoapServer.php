@@ -23,15 +23,13 @@ class WSSoapServer
     public function authorizeAndCaptureTIRCarnetIssuanceTransaction($params)
     {
         $this->log("authorizeAndCaptureTIRCarnetIssuanceTransaction", $params); // log
-                                                                                // connect to S1 WS
-        $lr = $this->loginS1WS('webuser1', 'webuser123', '5003');
-        $this->debug('login response', $lr);
-        $clientID = $this->authS1WS($lr);
-        $this->debug('auth response', $clientID);
+
+        $clientID = $this->get_clientID();
 
         // creaza factura in S1 din $params
-        $doc = getTIRCarnetDespatchAdvice($params);
+        $doc = $this->getTIRCarnetDespatchAdvice($params);
         $idDoc = $this->invoiceS1WS($clientID, $doc);
+        
         $this->debug('invoice response', $idDoc);
 
         $transactionEntryReference['_'] = '_';
@@ -43,6 +41,20 @@ class WSSoapServer
         ];
     }
 
+    /*
+     * login and auth, procure clientID;
+     */
+    private function get_clientID()
+    {
+        // connect to S1 WS
+        $lr = $this->loginS1WS('webuser1', 'webuser123', '5001');
+        $this->debug('login response', $lr);
+        $clientID = $this->authS1WS($lr);
+        $this->debug('auth response', $clientID);
+        
+        return $clientID;
+    }
+
     private function getTIRCarnetDespatchAdvice($params)
     {
         $arr = json_decode(json_encode($params), true);
@@ -50,6 +62,9 @@ class WSSoapServer
         $doc['IssueDate'] = $arr['tirCarnetDespatchAdvice']['IssueDate'];
 
         $doc['DesPid'] = $arr['tirCarnetDespatchAdvice']['DespatchParty']['AssociationOffice']['id'];
+
+        $this->debug('W1', $arr['tirCarnetDespatchAdvice']['DeliveryParty']['HaulierContact']);
+        $this->debug('W2', isset($arr['tirCarnetDespatchAdvice']['DeliveryParty']['HaulierContact']));
 
         if (isset($arr['tirCarnetDespatchAdvice']['DeliveryParty']['HaulierContact'])) {
             $doc['DelPFName'] = $arr['tirCarnetDespatchAdvice']['DeliveryParty']['HaulierContact']['firstName'];
@@ -61,9 +76,11 @@ class WSSoapServer
             $doc['DelPid'] = $arr['tirCarnetDespatchAdvice']['DeliveryParty']['AssociationOffice']['id'];
         }
 
+        $this->debug('W3', is_array($arr['tirCarnetDespatchAdvice']['TIRCarnetDespatchLine']));
         $i = 0;
         if (is_array($arr['tirCarnetDespatchAdvice']['TIRCarnetDespatchLine'])) {
             foreach ($arr['tirCarnetDespatchAdvice']['TIRCarnetDespatchLine'] as $curr_line) {
+                $this->debug("W$i", $curr_line);
                 $lines[$i]['LineId'] = $curr_line['Id'];
                 $lines[$i]['LineQuantity'] = $curr_line['Quantity'];
                 $lines[$i]['LineVoletCount'] = $curr_line['TIRCarnetItem']['VoletCount'];
@@ -75,6 +92,7 @@ class WSSoapServer
             }
         } else {
             $curr_line = $arr['tirCarnetDespatchAdvice']['TIRCarnetDespatchLine'];
+            $this->debug("W4", $curr_line);
             $lines[0]['LineId'] = $curr_line['Id'];
             $lines[0]['LineQuantity'] = $curr_line['Quantity'];
             $lines[0]['LineVoletCount'] = $curr_line['TIRCarnetItem']['VoletCount'];
@@ -84,6 +102,7 @@ class WSSoapServer
             $lines[0]['LineUnitQuantity'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['UnitQuantity'];
         }
 
+        $this->debug("Lines", $lines);
         $doc['Lines'] = $lines;
 
         return $doc;
@@ -216,7 +235,7 @@ class WSSoapServer
         $s1Doc = '{
                 "service": "setData",
                 "clientID": "' . $clientID . '",
-                "appId": 5003,
+                "appId": 5001,
                 "OBJECT": "SALDOC",
                 "KEY": "",
                 "FORM":"AskTIRweb sales",
@@ -292,7 +311,7 @@ class WSSoapServer
         $detailsQry = '{
                 "service": "sqlData",
                 "clientID": "' . $clientID . '",
-                "appId": 5003,
+                "appId": 5001,
                 "SqlName": "getDetails",
 				"asktirhauliercode": "' . $haulierCode . '",
 				"asktirbranch": "' . $asktirbranch . '",
@@ -347,7 +366,7 @@ class WSSoapServer
     public function sendTIRCarnetReceiptAdvice($params)
     {
         $this->log("sendTIRCarnetReceiptAdvice", $params); // log
-        $lr = $this->loginS1WS('webuser1', 'webuser123', '5003');
+        $lr = $this->loginS1WS('webuser1', 'webuser123', '5001');
         $this->debug('login response', $lr);
         $clientID = $this->authS1WS($lr);
         $this->debug('auth response', $clientID);
