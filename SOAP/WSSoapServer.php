@@ -46,9 +46,7 @@ class WSSoapServer
     {
         // connect to S1 WS
         $lr = $this->loginS1WS('webuser1', 'webuser123', '5001');
-        $this->debug('login response', $lr);
-        $clientID = $this->authS1WS($lr);
-        $this->debug('auth response', $clientID);
+        $clientID = $this->authS1WS($lr)['clientID'];
 
         return $clientID;
     }
@@ -108,46 +106,16 @@ class WSSoapServer
 
     private function loginS1WS($usr, $pwd, $appId)
     {
-        $curl = curl_init();
-
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => 'https://dev-untrronline.oncloud.gr/s1services',
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_HTTPHEADER => array(
-                'Content-Type: application/json'
-            ),
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => '{
+        $data = '{
                 "service": "login",
                 "username": "' . $usr . '",
                 "password":"' . $pwd . '",
                 "appId": ' . $appId . '
-            }'
-        ));
+            }';
 
-        $response = curl_exec($curl);
-        if ($response === false) {
-            return "Error in cURL : " . curl_error($curl);
-        }
-
-        $arr = json_decode(utf8_encode($response), true);
-        if ($arr['success'] == 1) {
-            $auth["clientID"] = $arr['clientID'];
-            $auth["COMPANY"] = $arr['objs'][0]['COMPANY'];
-            $auth["BRANCH"] = $arr['objs'][0]['BRANCH'];
-            $auth["MODULE"] = $arr['objs'][0]['MODULE'];
-            $auth["REFID"] = $arr['objs'][0]['REFID'];
-            return $auth;
-        } else {
-            return "Eroare logare.";
-        }
+        $this->debug('logging in s1 with', $data);
+        
+        return $this->talkToS1WS($data);
     }
 
     private function authS1WS($login_response)
@@ -155,17 +123,15 @@ class WSSoapServer
         $data = '{
             "service": "authenticate",
             "clientID": ' . $login_response['clientID'] . ',
-            "COMPANY": ' . $login_response['COMPANY'] . ',
-            "BRANCH": ' . $login_response['BRANCH'] . ',
-            "MODULE": ' . $login_response['MODULE'] . ',
-            "REFID": ' . $login_response['REFID'] . '
+            "COMPANY": ' . $login_response['objs'][0]['COMPANY'] . ',
+            "BRANCH": ' . $login_response['objs'][0]['BRANCH'] . ',
+            "MODULE": ' . $login_response['objs'][0]['MODULE'] . ',
+            "REFID": ' . $login_response['objs'][0]['REFID'] . '
         }';
 
-        $this->debug('authenticate in s1', $data);
+        $this->debug('authenticating in s1 with', $data);
 
-        $ret = $this->talkToS1WS($data)['clientID'];
-        $this->debug('auth clientID', $ret);
-        return $ret;
+        return $this->talkToS1WS($data);
     }
 
     private function invoiceS1WS($clientID, $doc)
