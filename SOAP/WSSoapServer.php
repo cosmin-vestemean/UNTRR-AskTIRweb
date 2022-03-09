@@ -75,7 +75,7 @@ class WSSoapServer
         }
 
         $this->debug('W3', is_array($arr['tirCarnetDespatchAdvice']['TIRCarnetDespatchLine']));
-        $i = 0;
+        $i = 4;
         if (is_array($arr['tirCarnetDespatchAdvice']['TIRCarnetDespatchLine'])) {
             foreach ($arr['tirCarnetDespatchAdvice']['TIRCarnetDespatchLine'] as $curr_line) {
                 $this->debug("W$i", $curr_line);
@@ -161,7 +161,11 @@ class WSSoapServer
             "REFID": ' . $login_response['REFID'] . '
         }';
 
-        $this->talkToS1WS($data);
+        $this->debug('authenticate in s1', $data);
+
+        $ret = $this->talkToS1WS($data)['clientID'];
+        $this->debug('auth clientID', $ret);
+        return $ret;
     }
 
     private function invoiceS1WS($clientID, $doc)
@@ -209,11 +213,12 @@ class WSSoapServer
             }';
 
         $this->debug('document s1', $s1Doc);
-
-        return $this->talkToS1WS($s1Doc, true);
+        $ret = $this->talkToS1WS($s1Doc)['id'];
+        $this->debug('findoc', $ret);
+        return $ret;
     }
 
-    private function talkToS1WS($data, $isId)
+    private function talkToS1WS($data)
     {
         $curl = curl_init();
 
@@ -245,10 +250,7 @@ class WSSoapServer
         $arr = json_decode(utf8_encode($response), true);
         $this->debug('S1 WS response', $arr);
         if ($arr['success'] == 1) {
-            if ($isId)
-                $ret = $arr['id'];
-            else
-                $ret = $arr['clientID'];
+            $ret = $arr;
         } else {
             $ret = $arr['error'] . "\r\nDetalii:" . utf8_encode($response);
         }
@@ -340,22 +342,6 @@ class WSSoapServer
     public function sendTIRCarnetReceiptAdvice($params)
     {
         $this->log("sendTIRCarnetReceiptAdvice", $params); // log
-        $lr = $this->loginS1WS('webuser1', 'webuser123', '5001');
-        $this->debug('login response', $lr);
-        $clientID = $this->authS1WS($lr);
-        $this->debug('auth response', $clientID);
-
-        // creaza transfer iesire 3001 in S1 din $params
-        $arr = json_decode(json_encode($params), true);
-
-        // cod creare transfer in s1
-        $transactionEntryReference['_'] = '_';
-        $transactionEntryReference['type'] = 'type';
-        $transactionEntryReference['date'] = gmdate("Y-m-d\TH:i:s\Z");
-
-        return [
-            "transactionEntryReference" => new SoapVar($transactionEntryReference, SOAP_ENC_OBJECT)
-        ];
     }
 
     public function sendTIRCarnetDespatchAdvice($params)
