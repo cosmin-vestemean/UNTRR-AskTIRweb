@@ -29,7 +29,7 @@ class WSSoapServer
         // creaza factura in S1 din $params
         $doc = $this->getTIRCarnetDespatchAdvice($params);
         $idDoc = $this->invoiceS1WS($clientID, $doc);
-        
+
         $this->debug('invoice response', $idDoc);
 
         $transactionEntryReference['_'] = '_';
@@ -51,7 +51,7 @@ class WSSoapServer
         $this->debug('login response', $lr);
         $clientID = $this->authS1WS($lr);
         $this->debug('auth response', $clientID);
-        
+
         return $clientID;
     }
 
@@ -197,20 +197,6 @@ class WSSoapServer
 
     private function invoiceS1WS($clientID, $doc)
     {
-        $voleti_mtrl['4'] = 13450;
-        $voleti_mtrl['6'] = 13451;
-        $voleti_mtrl['14'] = 13452;
-        $voleti_mtrl['20'] = 13453;
-
-        // $mtrl = 13450;
-        /*
-         * select
-         * (select seriesnum+1 from seriesnum where fiscprd=year(getdate()) and series=3110) seriesnum,
-         * (select dateadd(dd, 70, '20220131')) date02,
-         * (select branch from branch where CCCASKTIRID=0) branch,
-         * (select trdr from trdr where code1 = '13669') trdr
-         */
-
         $details = $this->getDetailsS1WS($clientID, $doc);
 
         $trndate = str_replace("-", "", substr($doc['IssueDate'], 0, 10)); // IssueDate
@@ -219,18 +205,20 @@ class WSSoapServer
         $branch = $details['rows'][0]['branch']; // select branch from branch where CCCASKTIRID=$doc['DesPid']
         $trdr = $details['rows'][0]['trdr']; // select trdr from trdr where code1 = substr($doc['DelPHaulierId'], 9)
         $series = $details['rows'][0]['series'];
+        $linii = '';
+        foreach ($doc['Lines'] as $linie) {
+            $mtrl = $this->voletiToMtrl($linie['LineVoletCount']);
+            $qty1 = $linie['LineQuantity'];
+            $cccsnstart = $linie['LineFirstTIRCarnetNumber'];
+            $cccsnstop = $linie['LineLastTIRCarnetNumber'];
+            $linii .= '{
+                            "MTRL": "' . $mtrl . '",
+                            "CCCSNSTART": "' . $cccsnstart . '",
+                            "QTY1": "' . $qty1 . '"
+                        },';
+        }
 
-        $mtrl = $voleti_mtrl[$doc['Lines'][0]['LineVoletCount']];
-        $qty1 = $doc['Lines'][0]['LineQuantity'];
-        $cccsnstart = $doc['Lines'][0]['LineFirstTIRCarnetNumber'];
-        $cccsnstop = $doc['Lines'][0]['LineLastTIRCarnetNumber'];
-
-        // "DATE02":"'.$date02.'",
-        // "TRNDATE": "'.$trndate.'",
-        // "DATE01":"'.$trndate.'",
-        // "SERIESNUM":"'.$seriesnum.'"
-        // "DATE01":"2022/02/04"
-        // "PAYMENT": "1000"
+        $linii = substr($linii, 0, strlen($linii) - 1);
 
         $s1Doc = '{
                 "service": "setData",
@@ -246,12 +234,7 @@ class WSSoapServer
                             "TRDR": ' . $trdr . '                                
                         }
                     ],
-                    "ITELINES": [
-                        {
-                            "MTRL": "' . $mtrl . '",
-                            "CCCSNSTART": "' . $cccsnstart . '",
-                            "QTY1": "' . $qty1 . '"
-                        }
+                    "ITELINES": [' . $linii . '
                     ]
                 }
             }';
@@ -292,6 +275,18 @@ class WSSoapServer
         } else {
             return "Eroare introducere document.\r\nEroarea:" . $arr['error'] . "\r\nDetalii:" . utf8_encode($response);
         }
+    }
+
+    private function voletiToMtrl($voleti_count)
+    {
+        $voleti_mtrl['4'] = 13450;
+        $voleti_mtrl['6'] = 13451;
+        $voleti_mtrl['14'] = 13452;
+        $voleti_mtrl['20'] = 13453;
+
+        $mtrl = $voleti_mtrl[$voleti_count];
+
+        return $mtrl;
     }
 
     private function getDetailsS1WS($clientID, $doc)
