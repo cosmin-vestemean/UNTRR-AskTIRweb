@@ -262,65 +262,52 @@ class WSSoapServer
 
         $this->debug('details qry', $detailsQry);
 
-        $curl = curl_init();
-
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => 'https://dev-untrronline.oncloud.gr/s1services',
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => $detailsQry,
-            CURLOPT_HTTPHEADER => array(
-                'Content-Type: application/json'
-            )
-        ));
-
-        $response = curl_exec($curl);
-        if ($response === false) {
-            return "Eroare in cURL : " . curl_error($curl);
-            $this->debug('Eroare in cURL', curl_error($curl));
-        }
-
-        curl_close($curl);
-
-        $arr = json_decode(utf8_encode($response), true);
-        $this->debug('detalii pentru vanzare', $arr);
-        if ($arr['success'] == 1) {
-            return $arr;
-        } else {
-            return "Eroare preluare detalii mapare asktirweb cu S1.\r\nEroarea:" . $arr['error'] . "\r\nDetalii:" . utf8_encode($response);
-            $this->debug('Eroare preluare detalii mapare asktirweb cu S1', $arr['error'] . "\r\nDetalii:" . utf8_encode($response));
-        }
+        $clientID = $this->get_clientID();
+        return $this->talkToS1WS($detailsQry);
     }
-
-    public function authorizeTIRCarnetIssuanceTransaction($params)
+    
+    public function sendTIRCarnetDespatchAdvice($params)
     {
-        $this->log("authorizeTIRCarnetIssuanceTransaction", $params); // log
-        return new SoapVar("authorizeTIRCarnetIssuanceTransaction", XSD_STRING);
+        $this->log("sendTIRCarnetDespatchAdvice", $params); // log
+        // cod creare transfer in s1
+        $transactionEntryReference['_'] = '_';
+        $transactionEntryReference['type'] = 'type';
+        $transactionEntryReference['date'] = gmdate("Y-m-d\TH:i:s\Z");
+        
+        return [
+            "transactionEntryReference" => new SoapVar($transactionEntryReference, SOAP_ENC_OBJECT)
+        ];
     }
 
     public function sendTIRCarnetReceiptAdvice($params)
     {
+        //return & transfer acknowledgement (transfer in)
+        /* return are [Reference] care indica perechea transfer din (despatch)
+         [Reference] => stdClass Object
+         (
+         [_] => 27673676
+         [type] => http://www.asktirweb.org/logistics/despatch
+         )
+         */
         $this->log("sendTIRCarnetReceiptAdvice", $params); // log
-    }
-
-    public function sendTIRCarnetDespatchAdvice($params)
-    {
-        $this->log("sendTIRCarnetDespatchAdvice", $params); // log
-                                                            // cod creare transfer in s1
+        $clientID = $this->get_clientID();
+        
+        // creaza factura in S1 din $params
+        $doc = $this->getTIRCarnetDespatchAdvice($params);
+        $this->TransferS1WS($clientID, $doc);
+        
         $transactionEntryReference['_'] = '_';
         $transactionEntryReference['type'] = 'type';
         $transactionEntryReference['date'] = gmdate("Y-m-d\TH:i:s\Z");
-
+        
         return [
             "transactionEntryReference" => new SoapVar($transactionEntryReference, SOAP_ENC_OBJECT)
         ];
+        
+    }
+    
+    function TransferS1WS($clientID, $doc) {
+        
     }
 
     private function log($method_name, $data)
