@@ -1,6 +1,9 @@
 <?php
 ini_set("soap.wsdl_cache_enabled", "0");
 
+//define constants for url and namespace
+define('S1WS_URL', 'https://dev-untrronline.oncloud.gr/s1services');
+
 class WSSoapServer
 {
 
@@ -10,49 +13,34 @@ class WSSoapServer
     {
         $this->class_name = $class_name;
     }
-	
-	public function Security($data) {
-		$username = $data->UsernameToken->Username;
-		$password = $data->UsernameToken->Password;
-		//check security credentials here
-		$this->log("username:", $username);
-		$this->log("password:", $password);
-	}
+
+    public function Security($data)
+    {
+        $username = $data->UsernameToken->Username;
+        $password = $data->UsernameToken->Password;
+        // check security credentials here
+        $this->log("username:", $username);
+        $this->log("password:", $password);
+    }
 
     public function authorizeAndCaptureTIRCarnetIssuanceTransaction($params)
     {
         $this->log("authorizeAndCaptureTIRCarnetIssuanceTransaction", $params); // log
-        // connect to S1 WS
-        $lr = $this->loginS1WS('webuser1', 'webuser123', '5001');
-        $this->debug('login response', $lr);
-        $clientID = $this->authS1WS($lr);
-        $this->debug('auth response', $clientID);
 
-        // creaza factura in S1 din $params
-        $arr = json_decode(json_encode($params), true);
-        $doc['Id'] = $arr['tirCarnetDespatchAdvice']['Id'];
-        $doc['IssueDate'] = $arr['tirCarnetDespatchAdvice']['IssueDate'];
-		
-        $doc['DesPid'] = $arr['tirCarnetDespatchAdvice']['DespatchParty']['AssociationOffice']['id'];
-        $doc['DesPname'] = $arr['tirCarnetDespatchAdvice']['DespatchParty']['AssociationOffice']['name'];
-        $doc['DesPassociationId'] = $arr['tirCarnetDespatchAdvice']['DespatchParty']['AssociationOffice']['associationId'];
-        
-		$doc['DelPFName'] = $arr['tirCarnetDespatchAdvice']['DeliveryParty']['HaulierContact']['firstName'];
-        $doc['DelPLName'] = $arr['tirCarnetDespatchAdvice']['DeliveryParty']['HaulierContact']['lastName'];
-        $doc['DelPHaulierId'] = $arr['tirCarnetDespatchAdvice']['DeliveryParty']['HaulierContact']['haulierId'];
-        $doc['DelPHaulierName'] = $arr['tirCarnetDespatchAdvice']['DeliveryParty']['HaulierContact']['haulierName'];
-		
-        $doc['LineId'] = $arr['tirCarnetDespatchAdvice']['TIRCarnetDespatchLine']['Id'];
-        $doc['LineQuantity'] = $arr['tirCarnetDespatchAdvice']['TIRCarnetDespatchLine']['Quantity'];
-        $doc['LineVoletCount'] = $arr['tirCarnetDespatchAdvice']['TIRCarnetDespatchLine']['TIRCarnetItem']['VoletCount'];
-        $doc['LineCarnetType'] = $arr['tirCarnetDespatchAdvice']['TIRCarnetDespatchLine']['TIRCarnetItem']['CarnetType'];
-        $doc['LineFirstTIRCarnetNumber'] = $arr['tirCarnetDespatchAdvice']['TIRCarnetDespatchLine']['TIRCarnetItem']['TIRCarnetRangeInstance']['FirstTIRCarnetNumber'];
-        $doc['LineLastTIRCarnetNumber'] = $arr['tirCarnetDespatchAdvice']['TIRCarnetDespatchLine']['TIRCarnetItem']['TIRCarnetRangeInstance']['LastTIRCarnetNumber'];
-        $doc['LineUnitQuantity'] = $arr['tirCarnetDespatchAdvice']['TIRCarnetDespatchLine']['TIRCarnetItem']['TIRCarnetRangeInstance']['UnitQuantity'];
+        // login and auth in s1, getting token for transaction
+        $clientID = $this->get_clientID();
 
-        $idDoc = $this->invoiceS1WS($clientID, $doc);
-        $this->debug('invoice response', $idDoc);
+        // ------creaza factura in S1 din $params-------
+        // stdClass > array
+        $doc = $this->getTIRCarnetDespatchOrReceipt($params);
+        // array > invoice json
+        $s1Inv = $this->phpArrayToJsonInvoice($clientID, $doc);
+        // send json to s1 and return newly created findoc
+        $findoc = $this->talkToS1WS($s1Inv)['id'];
+        // record findoc
+        $this->debug('findoc', $findoc);
 
+        // response
         $transactionEntryReference['_'] = '_';
         $transactionEntryReference['type'] = 'type';
         $transactionEntryReference['date'] = gmdate("Y-m-d\TH:i:s\Z");
@@ -62,131 +50,164 @@ class WSSoapServer
         ];
     }
 
+    /*
+     * login and auth, procure clientID;
+     */
+    private function get_clientID()
+    {
+        // connect to S1 WS
+        $lr = $this->loginS1WS('webuser1', 'webuser123', '5001');
+        $clientID = $this->authS1WS($lr)['clientID'];
+
+        return $clientID;
+    }
+
+    private function getTIRCarnetDespatchOrReceipt($params)
+    {
+        $arr = json_decode(json_encode($params), true);
+        $action = '';
+        $actionLines = '';
+
+        if (isset($arr['tirCarnetDespatchAdvice'])) {
+            $action = $arr['tirCarnetDespatchAdvice'];
+        } else if (isset($arr['TIRCarnetReceiptAdvice'])) {
+            $action = $arr['TIRCarnetReceiptAdvice'];
+        }
+
+        if (isset($action['TIRCarnetDespatchLine'])) {
+            $actionLines = $action['TIRCarnetDespatchLine'];
+        } else {
+            $actionLines = $action['TIRCarnetReceiptLine'];
+        }
+
+        // FINDOC
+        $doc['Id'] = $action['Id']; // CCCIDTRANIRU
+        $doc['IssueDate'] = $action['IssueDate']; // trndate, nu o voi folosi, se completeaza automat
+
+        // id branch plecare/vanzare+transfer iesire sau sosire/retur+transfer intrare
+        // [DespatchParty] poate fi [HaulierContact] la retur sau [AssociationOffice] la transferuri si vanzare
+        if (isset($action['DespatchParty']['HaulierContact'])) {
+            $doc['DesPFName'] = $action['DespatchParty']['HaulierContact']['firstName'];
+            $doc['DesPLName'] = $action['DespatchParty']['HaulierContact']['lastName'];
+            $doc['DesPHaulierId'] = $action['DespatchParty']['HaulierContact']['haulierId']; // code > trdr
+        } else if (isset($action['DespatchParty']['AssociationOffice'])) {
+            $doc['DesPid'] = $action['DespatchParty']['AssociationOffice']['id'];
+        }
+
+        $this->debug('DespatchParty>haulierId', $action['DespatchParty']['HaulierContact']['haulierId']);
+        $this->debug('DespatchParty>AssociationOfficeId',  $action['DespatchParty']['AssociationOffice']['id']);
+
+        // [DeliveryParty] poate fi [HaulierContact] la vanzari sau [AssociationOffice] la transferuri si retur
+        if (isset($action['DeliveryParty']['HaulierContact'])) {
+            $doc['DelPFName'] = $action['DeliveryParty']['HaulierContact']['firstName'];
+            $doc['DelPLName'] = $action['DeliveryParty']['HaulierContact']['lastName'];
+            $doc['DelPHaulierId'] = $action['DeliveryParty']['HaulierContact']['haulierId']; // code > trdr
+        }
+
+        if (isset($action['DeliveryParty']['AssociationOffice'])) {
+            $doc['DelPid'] = $action['DeliveryParty']['AssociationOffice']['id'];
+        }
+
+        $this->debug('DeliveryParty>haulierId', $action['DeliveryParty']['HaulierContact']['haulierId']);
+        $this->debug('DeliveryParty>AssociationOfficeId',  $action['DespatchParty']['AssociationOffice']['id']);
+
+        //ITELINES
+        $this->debug('linii multiple', is_array($actionLines));
+        $i = 4;
+        if (is_array($actionLines)) {
+            // linii multiple
+            foreach ($actionLines as $curr_line) {
+                $this->debug("W$i", $curr_line);
+                $lines[$i]['LineId'] = $curr_line['Id'];
+                $lines[$i]['LineQuantity'] = $curr_line['Quantity'];
+                $lines[$i]['LineVoletCount'] = $curr_line['TIRCarnetItem']['VoletCount'];
+                $lines[$i]['LineCarnetType'] = $curr_line['TIRCarnetItem']['CarnetType'];
+                // retur, stare carnete
+                if (isset($curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'])) {
+                    $lines[$i]['Used'] = $curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'][0]['Value'];
+                    $lines[$i]['Defective'] = $curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'][1]['Value'];
+                }
+                $lines[$i]['LineFirstTIRCarnetNumber'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['FirstTIRCarnetNumber'];
+                $lines[$i]['LineLastTIRCarnetNumber'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['LastTIRCarnetNumber'];
+                $lines[$i]['LineUnitQuantity'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['UnitQuantity'];
+                $i ++;
+            }
+        } else {
+            // o singura linie
+            $curr_line = $actionLines;
+            $this->debug("single line", $curr_line);
+            $lines[0]['LineId'] = $curr_line['Id'];
+            $lines[0]['LineQuantity'] = $curr_line['Quantity'];
+            $lines[0]['LineVoletCount'] = $curr_line['TIRCarnetItem']['VoletCount'];
+            $lines[0]['LineCarnetType'] = $curr_line['TIRCarnetItem']['CarnetType'];
+            // retur, stare carnete
+            if (isset($curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'])) {
+                $lines[0]['Used'] = $curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'][0]['Value'];
+                $lines[0]['Defective'] = $curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'][1]['Value'];
+            }
+            $lines[0]['LineFirstTIRCarnetNumber'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['FirstTIRCarnetNumber'];
+            $lines[0]['LineLastTIRCarnetNumber'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['LastTIRCarnetNumber'];
+            $lines[0]['LineUnitQuantity'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['UnitQuantity'];
+        }
+
+        $this->debug("Lines", $lines);
+        $doc['Lines'] = $lines;
+
+        return $doc;
+    }
+
     private function loginS1WS($usr, $pwd, $appId)
     {
-        $curl = curl_init();
-
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => 'https://dev-untrronline.oncloud.gr/s1services',
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_HTTPHEADER => array(
-                'Content-Type: application/json'
-            ),
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => '{
+        $data = '{
                 "service": "login",
                 "username": "' . $usr . '",
                 "password":"' . $pwd . '",
                 "appId": ' . $appId . '
-            }'
-        ));
+            }';
 
-        $response = curl_exec($curl);
-        if ($response === false) {
-            return "Error in cURL : " . curl_error($curl);
-        }
+        $this->debug('logging in s1 with', $data);
 
-        $arr = json_decode(utf8_encode($response), true);
-        if ($arr['success'] == 1) {
-            $auth["clientID"] = $arr['clientID'];
-            $auth["COMPANY"] = $arr['objs'][0]['COMPANY'];
-            $auth["BRANCH"] = $arr['objs'][0]['BRANCH'];
-            $auth["MODULE"] = $arr['objs'][0]['MODULE'];
-            $auth["REFID"] = $arr['objs'][0]['REFID'];
-            return $auth;
-        } else {
-            return "Eroare logare.";
-        }
+        return $this->talkToS1WS($data);
     }
 
-    private function authS1WS($lr)
+    private function authS1WS($login_response)
     {
-        $curl = curl_init();
+        $data = '{
+            "service": "authenticate",
+            "clientID": ' . $login_response['clientID'] . ',
+            "COMPANY": ' . $login_response['objs'][0]['COMPANY'] . ',
+            "BRANCH": ' . $login_response['objs'][0]['BRANCH'] . ',
+            "MODULE": ' . $login_response['objs'][0]['MODULE'] . ',
+            "REFID": ' . $login_response['objs'][0]['REFID'] . '
+        }';
 
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => 'https://dev-untrronline.oncloud.gr/s1services',
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => '{
-    "service": "authenticate",
-    "clientID": ' . $lr['clientID'] . ',
-    "COMPANY": ' . $lr['COMPANY'] . ',
-    "BRANCH": ' . $lr['BRANCH'] . ',
-    "MODULE": ' . $lr['MODULE'] . ',
-    "REFID": ' . $lr['REFID'] . '
-}',
-            CURLOPT_HTTPHEADER => array(
-                'Content-Type: application/json'
-            )
-        ));
+        $this->debug('authenticating in s1 with', $data);
 
-        $response = curl_exec($curl);
-        if ($response === false) {
-            return "Error in cURL : " . curl_error($curl);
-        }
-
-        curl_close($curl);
-
-        $arr = json_decode(utf8_encode($response), true);
-        if ($arr['success'] == 1) {
-            return $arr['clientID'];
-        } else {
-            return "Eroare autentificare.";
-        }
+        return $this->talkToS1WS($data);
     }
 
-    private function invoiceS1WS($clientID, $doc)
+    private function phpArrayToJsonInvoice($clientID, $doc)
     {
-        $voleti_mtrl['4'] = 13450;
-        $voleti_mtrl['6'] = 13451;
-        $voleti_mtrl['14'] = 13452;
-        $voleti_mtrl['20'] = 13453;
+        $details = $this->getDetailsS1WS($clientID, str_replace("-", "", substr($doc['IssueDate'], 0, 10)), $doc['DesPid'], substr($doc['DelPHaulierId'], 8));
+        $branch = $details['rows'][0]['branch']; // select branch from branch where CCCASKTIRID=$doc['DesPid']
+        $trdr = $details['rows'][0]['trdr']; // select trdr from trdr where code1 = substr($doc['DelPHaulierId'], 9)
+        $series = $details['rows'][0]['series'];
+        $linii = '';
+        foreach ($doc['Lines'] as $linie) {
+            $mtrl = $this->voletiToMtrl($linie['LineVoletCount']);
+            $qty1 = $linie['LineQuantity'];
+            $cccsnstart = $linie['LineFirstTIRCarnetNumber'];
+            $cccsnstop = $linie['LineLastTIRCarnetNumber'];
+            $linii .= '{
+                            "MTRL": "' . $mtrl . '",
+                            "CCCSNSTART": "' . $cccsnstart . '",
+                            "QTY1": "' . $qty1 . '"
+                        },';
+        }
 
-        //$mtrl = 13450;
-		/*
-		select 
-			(select seriesnum+1 from seriesnum where fiscprd=year(getdate()) and series=3110) seriesnum,
-			(select dateadd(dd, 70, '20220131')) date02,
-			(select branch from branch where CCCASKTIRID=0) branch,
-			(select trdr from trdr where code1 = '13669') trdr
-		*/
-		
-        $details = $this->getDetailsS1WS($clientID, $doc);
-		
-		$trndate = str_replace("-", "", substr($doc['IssueDate'], 0, 10));	//IssueDate
-		$seriesnum = $details['rows'][0]['seriesnum'];
-		$date02 = $details['rows'][0]['date02'];	//select dateadd(dd, 70, $trndate)
-		$branch = $details['rows'][0]['branch'];	//select branch from branch where CCCASKTIRID=$doc['DesPid']
-		$trdr = $details['rows'][0]['trdr'];	//select trdr from trdr where code1 = substr($doc['DelPHaulierId'], 9)
-		$series = $details['rows'][0]['series'];
-		
-		$mtrl = $voleti_mtrl[$doc['LineVoletCount']];
-		$qty1 = $doc['LineQuantity'];
-		$cccsnstart = $doc['LineFirstTIRCarnetNumber'];
-		$cccsnstop = $doc['LineLastTIRCarnetNumber'];
-		
-		//"DATE02":"'.$date02.'",
-		//"TRNDATE": "'.$trndate.'",
-		//"DATE01":"'.$trndate.'",
-		//"SERIESNUM":"'.$seriesnum.'"
-		//"DATE01":"2022/02/04"    
-		//"PAYMENT": "1000"
-		
-		$s1Doc = '{
+        $linii = substr($linii, 0, -1);
+
+        $s1Doc = '{
                 "service": "setData",
                 "clientID": "' . $clientID . '",
                 "appId": 5001,
@@ -197,21 +218,74 @@ class WSSoapServer
                     "SALDOC": [
                         {               
                             "SERIES": ' . $series . ',            
-                            "TRDR": '. $trdr .'                                
+                            "TRDR": ' . $trdr . '                                
                         }
                     ],
-                    "ITELINES": [
-                        {
-                            "MTRL": "'.$mtrl.'",
-                            "CCCSNSTART": "'.$cccsnstart.'",
-                            "QTY1": "'.$qty1.'"
-                        }
+                    "ITELINES": [' . $linii . '
                     ]
                 }
             }';
-			
-		$this->debug('document s1', $s1Doc);
-		
+
+        $this->debug('document s1', $s1Doc);
+        return $s1Doc;
+    }
+
+    private function phpArrayToJsonRetur($clientID, $doc)
+    {
+        $details = $this->getDetailsS1WS($clientID, str_replace("-", "", substr($doc['IssueDate'], 0, 10)), $doc['DelPid'], substr($doc['DesPHaulierId'], 8));
+        $fromTrdr = $details['rows'][0]['trdr'];
+        $toBranch = $details['rows'][0]['branch'];
+        // retur la 3002 agentie (restul), 3004 sediu (cccasktirid = 0, branch=1)
+        if ($toBranch == 1) {
+            $series = 3004;
+            $finstates = 17;
+        } else {
+            $series = 3002;
+            $finstates = 3;
+        }
+        $linii = '';
+        foreach ($doc['Lines'] as $linie) {
+            $mtrl = $this->voletiToMtrl($linie['LineVoletCount']);
+            $used = filter_var($linie['Used'], FILTER_VALIDATE_BOOLEAN);
+            $defective = filter_var($linie['Defective'], FILTER_VALIDATE_BOOLEAN);
+            $qty1 = $linie['LineQuantity'];
+            $sncode = $linie['LineFirstTIRCarnetNumber'];
+            $linii .= '{
+                            "MTRL": "' . $mtrl . '",
+                            "SNCODE": "' . $sncode . '",
+                            "QTY1": "' . $qty1 . '"
+                        },';
+        }
+
+        $linii = substr($linii, 0, strlen($linii) - 1);
+
+        $s1Doc = '{
+                "service": "setData",
+                "clientID": "' . $clientID . '",
+                "appId": 5001,
+                "OBJECT": "SALDOC",
+                "KEY": "",
+                "FORM":"AskTIRweb returns",
+                "DATA": {
+                    "SALDOC": [
+                        {
+                            "SERIES": ' . $series . ',
+                            "FINSTATES": ' . $finstates . ',
+                            "TRDR": ' . $fromTrdr . ',
+                            "BRANCH": ' . $toBranch . '
+                        }
+                    ],
+                    "ITELINES": [' . $linii . '
+                    ]
+                }
+            }';
+
+        $this->debug('document s1', $s1Doc);
+        return $s1Doc;
+    }
+
+    private function talkToS1WS($data)
+    {
         $curl = curl_init();
 
         curl_setopt_array($curl, array(
@@ -225,7 +299,7 @@ class WSSoapServer
             CURLOPT_SSL_VERIFYHOST => false,
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => $s1Doc,
+            CURLOPT_POSTFIELDS => $data,
             CURLOPT_HTTPHEADER => array(
                 'Content-Type: application/json'
             )
@@ -234,111 +308,101 @@ class WSSoapServer
         $response = curl_exec($curl);
         if ($response === false) {
             return "Eroare in cURL : " . curl_error($curl);
-			$this->debug('Eroare in cURL', curl_error($curl));
+            $this->debug('Eroare in cURL', curl_error($curl));
         }
 
         curl_close($curl);
 
         $arr = json_decode(utf8_encode($response), true);
-		$this->debug('vanzare', $arr);
+        $this->debug('S1 WS response', $arr);
         if ($arr['success'] == 1) {
-            return $arr['id'];
+            $ret = $arr;
         } else {
-            return "Eroare introducere document.\r\nEroarea:" . $arr['error'] . "\r\nDetalii:" . utf8_encode($response);
+            $ret = $arr['error'] . "\r\nDetalii:" . utf8_encode($response);
         }
+
+        return $ret;
     }
 
-	private function getDetailsS1WS($clientID, $doc)
+    private function voletiToMtrl($voleti_count)
     {
-		//returns  rows > seriesnum, date02, branch, trdr
-		/*
-		select 
-			(select seriesnum+1 from seriesnum where fiscprd=year(getdate()) and series=3110) seriesnum,
-			(select dateadd(dd, 70, '20220131')) date02,
-			(select branch from branch where CCCASKTIRID=0) branch,
-			(select trdr from trdr where code1 = '13669') trdr
-		*/
-		
-		$trndate = str_replace("-", "", substr($doc['IssueDate'], 0, 10));	//IssueDate
-		$asktirbranch = $doc['DesPid'];
-		$haulierCode = substr($doc['DelPHaulierId'], 8);
-		//$prsnout = 0;	//select prsn from prsn where name=$doc['DelPFName'] and name2=$doc['DelPLName'] and sodtype=21 and trdr=$trdr
-		$detailsQry = '{
+        $voleti_mtrl['4'] = 13450;
+        $voleti_mtrl['6'] = 13451;
+        $voleti_mtrl['14'] = 13452;
+        $voleti_mtrl['20'] = 13453;
+
+        $mtrl = $voleti_mtrl[$voleti_count];
+
+        return $mtrl;
+    }
+
+    private function getDetailsS1WS($clientID, $trndate, $asktirbranch, $haulierCode)
+    {
+        // returns rows > branch, trdr
+        /*
+         * select
+         * (select branch from branch where CCCASKTIRID=0) branch,
+         * (select trdr from trdr where code1 = '13669') trdr
+         */
+        $detailsQry = '{
                 "service": "sqlData",
                 "clientID": "' . $clientID . '",
                 "appId": 5001,
                 "SqlName": "getDetails",
-				"asktirhauliercode": "'.$haulierCode.'",
-				"asktirbranch": "'.$asktirbranch.'",
-				"asktirissuedate": "'.$trndate.'"
+				"asktirhauliercode": "' . $haulierCode . '",
+				"asktirbranch": "' . $asktirbranch . '"
 			}';
-		
-		$this->debug('details qry', $detailsQry);
 
-        $curl = curl_init();
+        $this->debug('details qry', $detailsQry);
 
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => 'https://dev-untrronline.oncloud.gr/s1services',
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => $detailsQry,
-            CURLOPT_HTTPHEADER => array(
-                'Content-Type: application/json'
-            )
-        ));
-
-        $response = curl_exec($curl);
-        if ($response === false) {
-            return "Eroare in cURL : " . curl_error($curl);
-			$this->debug('Eroare in cURL', curl_error($curl));
-        }
-
-        curl_close($curl);
-
-        $arr = json_decode(utf8_encode($response), true);
-		$this->debug('detalii pentru vanzare', $arr);
-        if ($arr['success'] == 1) {
-            return $arr;
-        } else {
-            return "Eroare preluare detalii mapare asktirweb cu S1.\r\nEroarea:" . $arr['error'] . "\r\nDetalii:" . utf8_encode($response);
-            $this->debug('Eroare preluare detalii mapare asktirweb cu S1',  $arr['error'] . "\r\nDetalii:" . utf8_encode($response));
-        }
-    }
-
-    public function authorizeTIRCarnetIssuanceTransaction($params)
-    {
-        $this->log("authorizeTIRCarnetIssuanceTransaction", $params); // log
-        return new SoapVar("authorizeTIRCarnetIssuanceTransaction", XSD_STRING);
-    }
-
-    public function sendTIRCarnetReceiptAdvice($params)
-    {
-        $this->log("sendTIRCarnetReceiptAdvice", $params); // log
-        //cod creare transfer in s1
-        $transactionEntryReference['_'] = '_';
-        $transactionEntryReference['type'] = 'type';
-        $transactionEntryReference['date'] = gmdate("Y-m-d\TH:i:s\Z");
-        
-        return [
-            "transactionEntryReference" => new SoapVar($transactionEntryReference, SOAP_ENC_OBJECT)
-        ];
+        $clientID = $this->get_clientID();
+        return $this->talkToS1WS($detailsQry);
     }
 
     public function sendTIRCarnetDespatchAdvice($params)
     {
         $this->log("sendTIRCarnetDespatchAdvice", $params); // log
-        //cod creare transfer in s1
+                                                            // cod creare transfer in s1
         $transactionEntryReference['_'] = '_';
         $transactionEntryReference['type'] = 'type';
         $transactionEntryReference['date'] = gmdate("Y-m-d\TH:i:s\Z");
-        
+
+        return [
+            "transactionEntryReference" => new SoapVar($transactionEntryReference, SOAP_ENC_OBJECT)
+        ];
+    }
+
+    public function sendTIRCarnetReceiptAdvice($params)
+    {
+        // return & transfer acknowledgement (transfer in)
+        /*
+         * return are [Reference] care indica perechea transfer din (despatch)
+         * [Reference] => stdClass Object
+         * (
+         * [_] => 27673676
+         * [type] => http://www.asktirweb.org/logistics/despatch
+         * )
+         */
+        $this->log("sendTIRCarnetReceiptAdvice", $params); // log
+
+        // login and auth in s1, getting token for transaction
+        $clientID = $this->get_clientID();
+
+        // ------creaza transfer/retur in S1 din $params-------
+        // stdClass > array
+        $doc = $this->getTIRCarnetDespatchOrReceipt($params);
+        // array > invoice json
+        $s1Inv = $this->phpArrayToJsonRetur($clientID, $doc);
+        // send json to s1 and return newly created findoc
+        $findoc = $this->talkToS1WS($s1Inv)['id'];
+        // record findoc
+        $this->debug('newly created findoc', $findoc);
+
+        // response
+        $transactionEntryReference['_'] = '_';
+        $transactionEntryReference['type'] = 'type';
+        $transactionEntryReference['date'] = gmdate("Y-m-d\TH:i:s\Z");
+
         return [
             "transactionEntryReference" => new SoapVar($transactionEntryReference, SOAP_ENC_OBJECT)
         ];
@@ -373,26 +437,381 @@ class DespatchParty
 {
 }
 try {
-	$Service = new WSSoapServer('UNTRRSOAPIRU');
-	$classmap = [
-		array(
-			'tirCarnetDespatchAdvice' => tirCarnetDespatchAdvice::class,
-			'DespatchParty' => DespatchParty::class
-		)
-	];
+    $Service = new WSSoapServer('UNTRRSOAPIRU');
+    $classmap = [
+        array(
+            'tirCarnetDespatchAdvice' => tirCarnetDespatchAdvice::class,
+            'DespatchParty' => DespatchParty::class
+        )
+    ];
 
-	$server = new SoapServer("iruacc.wsdl", array(
-		'soap_version' => SOAP_1_2,
-		'style' => SOAP_DOCUMENT,
-		'use' => SOAP_LITERAL,
-		'classmap' => $classmap,
-		"trace" => 1,
-		"exceptions" => 0
-	));
-	$server->setObject($Service);
-	$server->handle();
+    $server = new SoapServer("iruacc.wsdl", array(
+        'soap_version' => SOAP_1_2,
+        'style' => SOAP_DOCUMENT,
+        'use' => SOAP_LITERAL,
+        'classmap' => $classmap,
+        "trace" => 1,
+        "exceptions" => 0
+    ));
+    $server->setObject($Service);
+    $server->handle();
 } catch (SoapFault $exc) {
     echo $exc->getTraceAsString();
 }
 
 var_dump($server->getFunctions());
+
+/*
+ * TRANSFER IESIRE
+2022-03-09 12:10:47 - 194.209.227.150
+username:
+UNTRR502022-03-09 12:10:47 - 194.209.227.150
+password:
+w1bg8likt13aNlcp0+4QrfZCCWU=2022-03-09 12:10:47 - 194.209.227.150
+sendTIRCarnetDespatchAdvice
+stdClass Object
+(
+    [TIRCarnetDespatchAdvice] => stdClass Object
+        (
+            [Id] => 27673676
+            [IssueDate] => 2022-03-09T14:10:46.090+02:00
+            [DespatchParty] => stdClass Object
+                (
+                    [AssociationOffice] => stdClass Object
+                        (
+                            [id] => 0
+                            [name] => Sediu
+                            [associationId] => 50
+                        )
+
+                )
+
+            [DeliveryParty] => stdClass Object
+                (
+                    [AssociationOffice] => stdClass Object
+                        (
+                            [id] => 4
+                            [name] => Târgu Mureş
+                            [associationId] => 50
+                        )
+
+                )
+
+            [TIRCarnetDespatchLine] => stdClass Object
+                (
+                    [Id] => 27673676-1
+                    [Quantity] => 1
+                    [TIRCarnetItem] => stdClass Object
+                        (
+                            [VoletCount] => 14
+                            [CarnetType] => ORDINARY
+                            [TIRCarnetRangeInstance] => stdClass Object
+                                (
+                                    [FirstTIRCarnetNumber] => XW83126251
+                                    [LastTIRCarnetNumber] => XW83126251
+                                    [UnitQuantity] => 1
+                                )
+
+                        )
+
+                )
+
+        )
+
+)
+
+TRANSFER INTRARE
+2022-03-09 12:13:23 - 194.209.227.150
+username:
+UNTRR502022-03-09 12:13:23 - 194.209.227.150
+password:
+H9sJ2GGuF9sdshDZ7/W+QhP6/RA=2022-03-09 12:13:23 - 194.209.227.150
+sendTIRCarnetReceiptAdvice
+stdClass Object
+(
+    [TIRCarnetReceiptAdvice] => stdClass Object
+        (
+            [Id] => 27673677
+            [IssueDate] => 2022-03-09T14:13:22.395+02:00
+            [Reference] => stdClass Object
+                (
+                    [_] => 27673676
+                    [type] => http://www.asktirweb.org/logistics/despatch
+                )
+
+            [DespatchParty] => stdClass Object
+                (
+                    [AssociationOffice] => stdClass Object
+                        (
+                            [id] => 0
+                            [name] => Sediu
+                            [associationId] => 50
+                        )
+
+                )
+
+            [DeliveryParty] => stdClass Object
+                (
+                    [AssociationOffice] => stdClass Object
+                        (
+                            [id] => 4
+                            [name] => Târgu Mureş
+                            [associationId] => 50
+                        )
+
+                )
+
+            [TIRCarnetReceiptLine] => stdClass Object
+                (
+                    [Id] => 27673677-1
+                    [Quantity] => 1
+                    [TIRCarnetItem] => stdClass Object
+                        (
+                            [VoletCount] => 14
+                            [CarnetType] => ORDINARY
+                            [TIRCarnetRangeInstance] => stdClass Object
+                                (
+                                    [FirstTIRCarnetNumber] => XW83126251
+                                    [LastTIRCarnetNumber] => XW83126251
+                                    [UnitQuantity] => 1
+                                )
+
+                        )
+
+                )
+
+        )
+
+)
+VANZARE LA TRANSPORTATOR
+2022-03-09 13:51:33 - 194.209.227.150
+username:
+UNTRR502022-03-09 13:51:33 - 194.209.227.150
+password:
+XzwcTJuE5qFF4hH4uObqHc7QQkw=2022-03-09 13:51:33 - 194.209.227.150
+authorizeAndCaptureTIRCarnetIssuanceTransaction
+stdClass Object
+(
+    [tirCarnetDespatchAdvice] => stdClass Object
+        (
+            [Id] => 27673678
+            [IssueDate] => 2022-03-09T15:51:31.151+02:00
+            [DespatchParty] => stdClass Object
+                (
+                    [AssociationOffice] => stdClass Object
+                        (
+                            [id] => 4
+                            [name] => Târgu Mureş
+                            [associationId] => 50
+                        )
+
+                )
+
+            [DeliveryParty] => stdClass Object
+                (
+                    [HaulierContact] => stdClass Object
+                        (
+                            [firstName] => Cosmin
+                            [lastName] => Vestemean
+                            [haulierId] => ROU/050/13669
+                            [haulierName] => GAL SPEDITION SRL
+                        )
+
+                )
+
+            [TIRCarnetDespatchLine] => stdClass Object
+                (
+                    [Id] => 27673678-1
+                    [Quantity] => 1
+                    [TIRCarnetItem] => stdClass Object
+                        (
+                            [VoletCount] => 14
+                            [CarnetType] => ORDINARY
+                            [TIRCarnetRangeInstance] => stdClass Object
+                                (
+                                    [FirstTIRCarnetNumber] => XW83126251
+                                    [LastTIRCarnetNumber] => XW83126251
+                                    [UnitQuantity] => 1
+                                )
+
+                        )
+
+                )
+
+        )
+
+)
+
+RETUR DE LA TRANSPORTATOR
+2022-03-09 13:53:25 - 194.209.227.150
+username:
+UNTRR502022-03-09 13:53:25 - 194.209.227.150
+password:
+vHPTHe2QY3WNtGiYa12um1aB1iI=2022-03-09 13:53:25 - 194.209.227.150
+sendTIRCarnetReceiptAdvice
+stdClass Object
+(
+    [TIRCarnetReceiptAdvice] => stdClass Object
+        (
+            [Id] => 27673679
+            [IssueDate] => 2022-03-09T15:53:24.575+02:00
+            [DespatchParty] => stdClass Object
+                (
+                    [HaulierContact] => stdClass Object
+                        (
+                            [firstName] => Cosmin
+                            [lastName] => Vestemean
+                            [haulierId] => ROU/050/13669
+                            [haulierName] => GAL SPEDITION SRL
+                        )
+
+                )
+
+            [DeliveryParty] => stdClass Object
+                (
+                    [AssociationOffice] => stdClass Object
+                        (
+                            [id] => 4
+                            [name] => Târgu Mureş
+                            [associationId] => 50
+                        )
+
+                )
+
+            [TIRCarnetReceiptLine] => stdClass Object
+                (
+                    [Id] => 27673679-1
+                    [Quantity] => 1
+                    [TIRCarnetItem] => stdClass Object
+                        (
+                            [VoletCount] => 14
+                            [CarnetType] => ORDINARY
+                            [AdditionalCarnetProperties] => stdClass Object
+                                (
+                                    [AdditionalCarnetProperty] => Array
+                                        (
+                                            [0] => stdClass Object
+                                                (
+                                                    [NameCode] => stdClass Object
+                                                        (
+                                                            [_] => USED
+                                                            [type] => http://www.asktirweb.org/model/tir-carnet-1/property-name
+                                                        )
+
+                                                    [Value] => true
+                                                )
+
+                                            [1] => stdClass Object
+                                                (
+                                                    [NameCode] => stdClass Object
+                                                        (
+                                                            [_] => DEFECTIVE
+                                                            [type] => http://www.asktirweb.org/model/tir-carnet-1/property-name
+                                                        )
+
+                                                    [Value] => false
+                                                )
+
+                                        )
+
+                                )
+
+                            [TIRCarnetRangeInstance] => stdClass Object
+                                (
+                                    [FirstTIRCarnetNumber] => XW83126251
+                                    [LastTIRCarnetNumber] => XW83126251
+                                    [UnitQuantity] => 1
+                                )
+
+                        )
+
+                )
+
+        )
+
+)
+
+VANZARE LINII MULTIPLE
+2022-03-09 14:15:11 - 194.209.227.150
+username:
+UNTRR502022-03-09 14:15:11 - 194.209.227.150
+password:
+BbJ1cEsApAMF57BHGOmQBwHDsnE=2022-03-09 14:15:11 - 194.209.227.150
+authorizeAndCaptureTIRCarnetIssuanceTransaction
+<?php
+stdClass Object
+(
+    [tirCarnetDespatchAdvice] => stdClass Object
+        (
+            [Id] => 27673680
+            [IssueDate] => 2022-03-09T16:15:10.086+02:00
+            [DespatchParty] => stdClass Object
+                (
+                    [AssociationOffice] => stdClass Object
+                        (
+                            [id] => 0
+                            [name] => Sediu
+                            [associationId] => 50
+                        )
+
+                )
+
+            [DeliveryParty] => stdClass Object
+                (
+                    [HaulierContact] => stdClass Object
+                        (
+                            [firstName] => Cosmin
+                            [lastName] => Vestemean
+                            [haulierId] => ROU/050/13669
+                            [haulierName] => GAL SPEDITION SRL
+                        )
+
+                )
+
+            [TIRCarnetDespatchLine] => Array
+                (
+                    [0] => stdClass Object
+                        (
+                            [Id] => 27673680-1
+                            [Quantity] => 2
+                            [TIRCarnetItem] => stdClass Object
+                                (
+                                    [VoletCount] => 14
+                                    [CarnetType] => ORDINARY
+                                    [TIRCarnetRangeInstance] => stdClass Object
+                                        (
+                                            [FirstTIRCarnetNumber] => XT84887751
+                                            [LastTIRCarnetNumber] => XW84887752
+                                            [UnitQuantity] => 2
+                                        )
+
+                                )
+
+                        )
+
+                    [1] => stdClass Object
+                        (
+                            [Id] => 27673680-2
+                            [Quantity] => 2
+                            [TIRCarnetItem] => stdClass Object
+                                (
+                                    [VoletCount] => 14
+                                    [CarnetType] => ORDINARY
+                                    [TIRCarnetRangeInstance] => stdClass Object
+                                        (
+                                            [FirstTIRCarnetNumber] => XZ83126252
+                                            [LastTIRCarnetNumber] => XC83126253
+                                            [UnitQuantity] => 2
+                                        )
+
+                                )
+
+                        )
+
+                )
+
+        )
+
+)
+ 
+*/
