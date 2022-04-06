@@ -1,22 +1,22 @@
-2022-03-09 13:53:25 - 194.209.227.150
+2022-03-17 15:26:50 - 194.209.227.150
 username:
-UNTRR502022-03-09 13:53:25 - 194.209.227.150
+UNTRR502022-03-17 15:26:50 - 194.209.227.150
 password:
-vHPTHe2QY3WNtGiYa12um1aB1iI=2022-03-09 13:53:25 - 194.209.227.150
+LH93r707g5C/kUEIn4gQO3Ktm2U=2022-03-17 15:26:50 - 194.209.227.150
 sendTIRCarnetReceiptAdvice
-<?php
+<?
 stdClass Object
 (
     [TIRCarnetReceiptAdvice] => stdClass Object
         (
-            [Id] => 27673679
-            [IssueDate] => 2022-03-09T15:53:24.575+02:00
+            [Id] => 27673697
+            [IssueDate] => 2022-03-17T17:26:47.952+02:00
             [DespatchParty] => stdClass Object
                 (
                     [HaulierContact] => stdClass Object
                         (
-                            [firstName] => Cosmin
-                            [lastName] => Vestemean
+                            [firstName] => xaqasd
+                            [lastName] => dfsddc
                             [haulierId] => ROU/050/13669
                             [haulierName] => GAL SPEDITION SRL
                         )
@@ -27,56 +27,158 @@ stdClass Object
                 (
                     [AssociationOffice] => stdClass Object
                         (
-                            [id] => 4
-                            [name] => TĂ˘rgu MureĹź
+                            [id] => 0
+                            [name] => Sediu
                             [associationId] => 50
                         )
 
                 )
 
-            [TIRCarnetReceiptLine] => stdClass Object
+            [TIRCarnetReceiptLine] => Array
                 (
-                    [Id] => 27673679-1
-                    [Quantity] => 1
-                    [TIRCarnetItem] => stdClass Object
+                    [0] => stdClass Object
                         (
-                            [VoletCount] => 14
-                            [CarnetType] => ORDINARY
-                            [AdditionalCarnetProperties] => stdClass Object
+                            [Id] => 27673697-1
+                            [Quantity] => 1
+                            [TIRCarnetItem] => stdClass Object
                                 (
-                                    [AdditionalCarnetProperty] => Array
+                                    [VoletCount] => 6
+                                    [CarnetType] => ORDINARY
+                                    [AdditionalCarnetProperties] => stdClass Object
                                         (
-                                            [0] => stdClass Object
+                                            [AdditionalCarnetProperty] => Array
                                                 (
-                                                    [NameCode] => stdClass Object
+                                                    [0] => stdClass Object
                                                         (
-                                                            [_] => USED
-                                                            [type] => http://www.asktirweb.org/model/tir-carnet-1/property-name
+                                                            [NameCode] => stdClass Object
+                                                                (
+                                                                    [_] => USED
+                                                                    [type] => http://www.asktirweb.org/model/tir-carnet-1/property-name
+                                                                )
+
+                                                            [Value] => true
                                                         )
 
-                                                    [Value] => true
-                                                )
-
-                                            [1] => stdClass Object
-                                                (
-                                                    [NameCode] => stdClass Object
+                                                    [1] => stdClass Object
                                                         (
-                                                            [_] => DEFECTIVE
-                                                            [type] => http://www.asktirweb.org/model/tir-carnet-1/property-name
+                                                            [NameCode] => stdClass Object
+                                                                (
+                                                                    [_] => DEFECTIVE
+                                                                    [type] => http://www.asktirweb.org/model/tir-carnet-1/property-name
+                                                                )
+
+                                                            [Value] => false
                                                         )
 
-                                                    [Value] => false
                                                 )
 
                                         )
 
+                                    [TIRCarnetRangeInstance] => stdClass Object
+                                        (
+                                            [FirstTIRCarnetNumber] => MX82917491
+                                            [LastTIRCarnetNumber] => MX82917491
+                                            [UnitQuantity] => 1
+                                        )
+
                                 )
 
-                            [TIRCarnetRangeInstance] => stdClass Object
+                        )
+
+                    [1] => stdClass Object
+                        (
+                            [Id] => 27673697-2
+                            [Quantity] => 1
+                            [TIRCarnetItem] => stdClass Object
                                 (
-                                    [FirstTIRCarnetNumber] => XW83126251
-                                    [LastTIRCarnetNumber] => XW83126251
-                                    [UnitQuantity] => 1
+                                    [VoletCount] => 6
+                                    [CarnetType] => ORDINARY
+                                    [AdditionalCarnetProperties] => stdClass Object
+                                        (
+                                            [AdditionalCarnetProperty] => Array
+                                                (
+                                                    [0] => stdClass Object
+                                                        (
+                                                            [NameCode] => stdClass Object
+                                                                (
+                                                                    [_] => USED
+                                                                    [type] => http://www.asktirweb.org/model/tir-carnet-1/property-name
+                                                                )
+
+                                                            [Value] => true
+                                                        )
+
+                                                    [1] => stdClass Object
+                                                        (
+                                                            [NameCode] => stdClass Object
+                                                                (
+                                                                    [_] => DEFECTIVE
+                                                                    [type] => http://www.asktirweb.org/model/tir-carnet-1/property-name
+                                                                )
+
+                                                            [Value] => false
+                                                        )
+
+                                                )
+
+                                        )
+
+                                    [TIRCarnetRangeInstance] => stdClass Object
+                                        (
+                                            [FirstTIRCarnetNumber] => JX82917490
+                                            [LastTIRCarnetNumber] => JX82917490
+                                            [UnitQuantity] => 1
+                                        )
+
+                                )
+
+                        )
+
+                    [2] => stdClass Object
+                        (
+                            [Id] => 27673697-3
+                            [Quantity] => 1
+                            [TIRCarnetItem] => stdClass Object
+                                (
+                                    [VoletCount] => 6
+                                    [CarnetType] => ORDINARY
+                                    [AdditionalCarnetProperties] => stdClass Object
+                                        (
+                                            [AdditionalCarnetProperty] => Array
+                                                (
+                                                    [0] => stdClass Object
+                                                        (
+                                                            [NameCode] => stdClass Object
+                                                                (
+                                                                    [_] => USED
+                                                                    [type] => http://www.asktirweb.org/model/tir-carnet-1/property-name
+                                                                )
+
+                                                            [Value] => true
+                                                        )
+
+                                                    [1] => stdClass Object
+                                                        (
+                                                            [NameCode] => stdClass Object
+                                                                (
+                                                                    [_] => DEFECTIVE
+                                                                    [type] => http://www.asktirweb.org/model/tir-carnet-1/property-name
+                                                                )
+
+                                                            [Value] => false
+                                                        )
+
+                                                )
+
+                                        )
+
+                                    [TIRCarnetRangeInstance] => stdClass Object
+                                        (
+                                            [FirstTIRCarnetNumber] => MX82916226
+                                            [LastTIRCarnetNumber] => MX82916226
+                                            [UnitQuantity] => 1
+                                        )
+
                                 )
 
                         )
