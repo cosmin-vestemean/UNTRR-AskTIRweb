@@ -28,7 +28,7 @@ class WSSoapServer
         $this->log("authorizeAndCaptureTIRCarnetIssuanceTransaction", $params); // log
 
         // login and auth in s1, getting token for transaction
-        $clientID = $this->get_clientID();
+        $clientID = $this->get_clientID_Sediu();
 
         // ------creaza factura in S1 din $params-------
         // stdClass > array
@@ -38,7 +38,7 @@ class WSSoapServer
         // send json to s1 and return newly created findoc
         $findoc = $this->talkToS1WS($s1Inv)['id'];
         // record findoc
-        $this->debug('findoc', $findoc);
+        $this->debug('newly created findoc', $findoc);
 
         // response
         $transactionEntryReference['_'] = '_';
@@ -53,7 +53,7 @@ class WSSoapServer
     /*
      * login and auth, procure clientID;
      */
-    private function get_clientID()
+    private function get_clientID_Sediu()
     {
         // connect to S1 WS
         $lr = $this->loginS1WS('asktir_sediu', 'asktir_sediu', '5003');
@@ -62,114 +62,13 @@ class WSSoapServer
         return $clientID;
     }
 
-    private function getTIRCarnetDespatchOrReceipt($params)
+    private function get_clientID_Branch($branch)
     {
-        $this->debug('getTIRCarnetDespatchOrReceipt params', $params);
-        $arr = json_decode(json_encode($params), true);
-        $this->debug('getTIRCarnetDespatchOrReceipt arr', $arr);
-        $action = [];
-        $actionLines = [];
+        // connect to S1 WS
+        $lr = $this->loginS1WS('asktir_sediu', 'asktir_sediu', '5003');
+        $clientID = $this->authS1WS_Branch($lr, $branch)['clientID'];
 
-        $this->debug('array_key_exists>TIRCarnetDespatchAdvice', array_key_exists('TIRCarnetDespatchAdvice', $arr));
-        $this->debug('arr[TIRCarnetDespatchAdvice]', $arr['TIRCarnetDespatchAdvice']);
-
-        //if key TIRCarnetDespatchAdvice exists in $arr then $action = $arr['TIRCarnetDespatchAdvice'] else if key tirCarnetDespatchAdvice exists then $action=$arr['tirCarnetDespatchAdvice'] else $action = $arr['TIRCarnetReceiptAdvice']
-        if (array_key_exists('TIRCarnetDespatchAdvice', $arr)) {
-            $action = $arr['TIRCarnetDespatchAdvice'];
-        } elseif (array_key_exists('tirCarnetDespatchAdvice', $arr)) {
-            $action = $arr['tirCarnetDespatchAdvice'];
-        } else {
-            $action = $arr['TIRCarnetReceiptAdvice'];
-        }
-
-        $this->debug('getTIRCarnetDespatchOrReceipt action', $action);
-
-        if (array_key_exists('TIRCarnetDespatchLine', $action)) {
-            $actionLines = $action['TIRCarnetDespatchLine'];
-        } elseif (array_key_exists('tirCarnetDespatchLine', $action)) {
-            $actionLines = $action['tirCarnetDespatchLine'];
-        } else {
-            $actionLines = $action['TIRCarnetReceiptLine'];
-        }
-
-        $this->debug('getTIRCarnetDespatchOrReceipt actionLines', $actionLines);
-
-        // FINDOC
-        $doc['Id'] = $action['Id']; // CCCIDTRANIRU
-        $doc['IssueDate'] = $action['IssueDate']; // trndate, nu o voi folosi, se completeaza automat
-        if (isset($action['Reference']))
-            $doc['Reference'] = $action['Reference'];
-
-        // id branch plecare/vanzare+transfer iesire sau sosire/retur+transfer intrare
-        // [DespatchParty] poate fi [HaulierContact] la retur sau [AssociationOffice] la transferuri si vanzare
-        if (isset($action['DespatchParty']['HaulierContact'])) {
-            $doc['DesPFName'] = $action['DespatchParty']['HaulierContact']['firstName'];
-            $doc['DesPLName'] = $action['DespatchParty']['HaulierContact']['lastName'];
-            $doc['DesPHaulierId'] = $action['DespatchParty']['HaulierContact']['haulierId']; // code > trdr
-        } else if (isset($action['DespatchParty']['AssociationOffice'])) {
-            $doc['DesPid'] = $action['DespatchParty']['AssociationOffice']['id'];
-        }
-
-        $this->debug('DespatchParty>haulierId', $action['DespatchParty']['HaulierContact']['haulierId']);
-        $this->debug('DespatchParty>AssociationOfficeId',  $action['DespatchParty']['AssociationOffice']['id']);
-
-        // [DeliveryParty] poate fi [HaulierContact] la vanzari sau [AssociationOffice] la transferuri si retur
-        if (isset($action['DeliveryParty']['HaulierContact'])) {
-            $doc['DelPFName'] = $action['DeliveryParty']['HaulierContact']['firstName'];
-            $doc['DelPLName'] = $action['DeliveryParty']['HaulierContact']['lastName'];
-            $doc['DelPHaulierId'] = $action['DeliveryParty']['HaulierContact']['haulierId']; // code > trdr
-        }
-
-        if (isset($action['DeliveryParty']['AssociationOffice'])) {
-            $doc['DelPid'] = $action['DeliveryParty']['AssociationOffice']['id'];
-        }
-
-        $this->debug('DeliveryParty>haulierId', $action['DeliveryParty']['HaulierContact']['haulierId']);
-        $this->debug('DeliveryParty>AssociationOfficeId',  $action['DeliveryParty']['AssociationOffice']['id']);
-
-        //ITELINES
-        $this->debug('continut linii', $actionLines);
-        $i = 0;
-        if (isset($actionLines[1])) {
-            // linii multiple
-            foreach ($actionLines as $curr_line) {
-                $this->debug("Linia$i", $curr_line);
-                $lines[$i]['LineId'] = $curr_line['Id'];
-                $lines[$i]['LineQuantity'] = $curr_line['Quantity'];
-                $lines[$i]['LineVoletCount'] = $curr_line['TIRCarnetItem']['VoletCount'];
-                $lines[$i]['LineCarnetType'] = $curr_line['TIRCarnetItem']['CarnetType'];
-                // retur, stare carnete
-                if (isset($curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'])) {
-                    $lines[$i]['Used'] = $curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'][0]['Value'];
-                    $lines[$i]['Defective'] = $curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'][1]['Value'];
-                }
-                $lines[$i]['LineFirstTIRCarnetNumber'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['FirstTIRCarnetNumber'];
-                $lines[$i]['LineLastTIRCarnetNumber'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['LastTIRCarnetNumber'];
-                $lines[$i]['LineUnitQuantity'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['UnitQuantity'];
-                $i ++;
-            }
-        } else {
-            // o singura linie
-            $curr_line = $actionLines;
-            $this->debug("single line", $curr_line);
-            $lines[0]['LineId'] = $curr_line['Id'];
-            $lines[0]['LineQuantity'] = $curr_line['Quantity'];
-            $lines[0]['LineVoletCount'] = $curr_line['TIRCarnetItem']['VoletCount'];
-            $lines[0]['LineCarnetType'] = $curr_line['TIRCarnetItem']['CarnetType'];
-            // retur, stare carnete
-            if (isset($curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'])) {
-                $lines[0]['Used'] = $curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'][0]['Value'];
-                $lines[0]['Defective'] = $curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'][1]['Value'];
-            }
-            $lines[0]['LineFirstTIRCarnetNumber'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['FirstTIRCarnetNumber'];
-            $lines[0]['LineLastTIRCarnetNumber'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['LastTIRCarnetNumber'];
-            $lines[0]['LineUnitQuantity'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['UnitQuantity'];
-        }
-
-        $this->debug("Lines", $lines);
-        $doc['Lines'] = $lines;
-
-        return $doc;
+        return $clientID;
     }
 
     private function loginS1WS($usr, $pwd, $appId)
@@ -200,6 +99,123 @@ class WSSoapServer
         $this->debug('authenticating in s1 with', $data);
 
         return $this->talkToS1WS($data);
+    }
+
+    private function authS1WS_Branch($login_response, $branch)
+    {
+        $data = '{
+            "service": "authenticate",
+            "clientID": ' . $login_response['clientID'] . ',
+            "COMPANY": ' . $login_response['objs'][0]['COMPANY'] . ',
+            "BRANCH": ' . $branch . ',
+            "MODULE": ' . $login_response['objs'][0]['MODULE'] . ',
+            "REFID": ' . $login_response['objs'][0]['REFID'] . '
+        }';
+
+        $this->debug('authenticating in s1 with', $data);
+
+        return $this->talkToS1WS($data);
+    }
+
+    private function getTIRCarnetDespatchOrReceipt($params)
+    {
+        $arr = json_decode(json_encode($params), true);
+        $action = [];
+        $actionLines = [];
+
+        //if key TIRCarnetDespatchAdvice exists in $arr then $action = $arr['TIRCarnetDespatchAdvice'] else if key tirCarnetDespatchAdvice exists then $action=$arr['tirCarnetDespatchAdvice'] else $action = $arr['TIRCarnetReceiptAdvice']
+        if (array_key_exists('TIRCarnetDespatchAdvice', $arr)) {
+            $action = $arr['TIRCarnetDespatchAdvice'];
+        } elseif (array_key_exists('tirCarnetDespatchAdvice', $arr)) {
+            $action = $arr['tirCarnetDespatchAdvice'];
+        } else {
+            $action = $arr['TIRCarnetReceiptAdvice'];
+        }
+
+        if (array_key_exists('TIRCarnetDespatchLine', $action)) {
+            $actionLines = $action['TIRCarnetDespatchLine'];
+        } elseif (array_key_exists('tirCarnetDespatchLine', $action)) {
+            $actionLines = $action['tirCarnetDespatchLine'];
+        } else {
+            $actionLines = $action['TIRCarnetReceiptLine'];
+        }
+
+        // FINDOC
+        $doc['Id'] = $action['Id']; // CCCIDTRANIRU
+        $doc['IssueDate'] = $action['IssueDate']; // trndate, nu o voi folosi, se completeaza automat
+        if (isset($action['Reference']))
+            $doc['Reference'] = $action['Reference'];
+
+        // id branch plecare/vanzare+transfer iesire sau sosire/retur+transfer intrare
+        // [DespatchParty] poate fi [HaulierContact] la retur sau [AssociationOffice] la transferuri si vanzare
+        if (isset($action['DespatchParty']['HaulierContact'])) {
+            $doc['DesPFName'] = $action['DespatchParty']['HaulierContact']['firstName'];
+            $doc['DesPLName'] = $action['DespatchParty']['HaulierContact']['lastName'];
+            $doc['DesPHaulierId'] = $action['DespatchParty']['HaulierContact']['haulierId']; // code > trdr
+        } else if (isset($action['DespatchParty']['AssociationOffice'])) {
+            $doc['DesPid'] = $action['DespatchParty']['AssociationOffice']['id'];
+        }
+
+        // [DeliveryParty] poate fi [HaulierContact] la vanzari sau [AssociationOffice] la transferuri si retur
+        if (isset($action['DeliveryParty']['HaulierContact'])) {
+            $doc['DelPFName'] = $action['DeliveryParty']['HaulierContact']['firstName'];
+            $doc['DelPLName'] = $action['DeliveryParty']['HaulierContact']['lastName'];
+            $doc['DelPHaulierId'] = $action['DeliveryParty']['HaulierContact']['haulierId']; // code > trdr
+        }
+
+        if (isset($action['DeliveryParty']['AssociationOffice'])) {
+            $doc['DelPid'] = $action['DeliveryParty']['AssociationOffice']['id'];
+        }
+
+        //ITELINES
+        $i = 0;
+        if (isset($actionLines[1])) {
+            // linii multiple
+            foreach ($actionLines as $curr_line) {
+                $lines[$i]['LineId'] = $curr_line['Id'];
+                $lines[$i]['LineQuantity'] = $curr_line['Quantity'];
+                $lines[$i]['LineVoletCount'] = $curr_line['TIRCarnetItem']['VoletCount'];
+                $lines[$i]['LineCarnetType'] = $curr_line['TIRCarnetItem']['CarnetType'];
+                // retur, stare carnete
+                if (isset($curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'])) {
+                    $lines[$i]['Used'] = $curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'][0]['Value'];
+                    $lines[$i]['Defective'] = $curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'][1]['Value'];
+                }
+                $lines[$i]['LineFirstTIRCarnetNumber'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['FirstTIRCarnetNumber'];
+                $lines[$i]['LineLastTIRCarnetNumber'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['LastTIRCarnetNumber'];
+                $lines[$i]['LineUnitQuantity'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['UnitQuantity'];
+                $i ++;
+            }
+        } else {
+            // o singura linie
+            $curr_line = $actionLines;
+            $lines[0]['LineId'] = $curr_line['Id'];
+            $lines[0]['LineQuantity'] = $curr_line['Quantity'];
+            $lines[0]['LineVoletCount'] = $curr_line['TIRCarnetItem']['VoletCount'];
+            $lines[0]['LineCarnetType'] = $curr_line['TIRCarnetItem']['CarnetType'];
+            // retur, stare carnete
+            if (isset($curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'])) {
+                $lines[0]['Used'] = $curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'][0]['Value'];
+                $lines[0]['Defective'] = $curr_line['TIRCarnetItem']['AdditionalCarnetProperties']['AdditionalCarnetProperty'][1]['Value'];
+            }
+            $lines[0]['LineFirstTIRCarnetNumber'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['FirstTIRCarnetNumber'];
+            $lines[0]['LineLastTIRCarnetNumber'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['LastTIRCarnetNumber'];
+            $lines[0]['LineUnitQuantity'] = $curr_line['TIRCarnetItem']['TIRCarnetRangeInstance']['UnitQuantity'];
+        }
+
+        $doc['Lines'] = $lines;
+
+        return $doc;
+    }
+
+    private function getTransferBranch($params) {
+        $arr = json_decode(json_encode($params), true);
+        //if key TIRCarnetDespatchAdvice exists in $arr then $action = $arr['TIRCarnetDespatchAdvice'] else if key tirCarnetDespatchAdvice exists then $action=$arr['tirCarnetDespatchAdvice'] else $action = $arr['TIRCarnetReceiptAdvice']
+        if (array_key_exists('TIRCarnetDespatchAdvice', $arr)) {
+            return $arr['TIRCarnetDespatchAdvice']['DespatchParty']['AssociationOffice']['id'];
+        } else {
+            return $arr['TIRCarnetReceiptAdvice']['DeliveryParty']['AssociationOffice']['id'];
+        }
     }
 
     private function phpArrayToJsonInvoice($clientID, $doc)
@@ -305,17 +321,8 @@ class WSSoapServer
     }
 
     private function phpArrayToJsonTransfer($clientID, $doc, $isIesire)
-    {
-        $this->debug('phpArrayToJsonTransfer doc', $doc);
-        $this->debug('DelPid', $doc['DelPid']);
-        $this->debug('DesPid', $doc['DesPid']);
-
-        $delPartyId = $doc['DesPid'];
-        $desPartyId = $doc['DelPid'];
-        
-        $details = $this->getDetailsS1WS($clientID, $delPartyId, $desPartyId, 'xyz132');
-        $this->debug('transfer details', $details);
-        $this->debug('transfer doc', $doc);
+    {  
+        $details = $this->getDetailsS1WS($clientID, $doc['DesPid'], $doc['DelPid'], 'xyz132');
 
         // iesire 3001/AskTIRweb - Transfer (Iesire), intrare 3002/AskTIRweb - Transfer (Intrare)
         if (isset($isIesire) && $isIesire) {
@@ -454,24 +461,25 @@ class WSSoapServer
 
         $this->debug('details qry', $detailsQry);
 
-        $clientID = $this->get_clientID();
         return $this->talkToS1WS($detailsQry);
     }
 
+    //Iesire
     public function sendTIRCarnetDespatchAdvice($params)
     {
         $this->log("sendTIRCarnetDespatchAdvice", $params); // log
-        
-        // login and auth in s1, getting token for transaction
-        $clientID = $this->get_clientID();
-
-        // ------creaza transfer/retur in S1 din $params-------
+        // ------creaza transfer in S1 din $params-------
         // stdClass > array
-        $this->debug('sendTIRCarnetDespatchAdvice params', $params);
-
         $doc = $this->getTIRCarnetDespatchOrReceipt($params);
-        $this->debug('sendTIRCarnetDespatchAdvice doc', $doc);
-        // array > return/transfer carnets json
+
+        // login and auth in s1 proper branch, getting token for transaction
+        $properBranchIRU = $this->getTransferBranch($params);
+        $clientID = $this->get_clientID_Sediu();
+        $details = $this->getDetailsS1WS($clientID, $properBranchIRU, -1, 'xyz132');
+        $properBranchS1 = $details['rows'][0]['branch'];
+        $clientID = $this->get_clientID_Branch($properBranchS1);
+
+        // array > transfer carnets json
         $s1Inv = $this->phpArrayToJsonTransfer($clientID, $doc, false);
         // send json to s1 and return newly created findoc
         $findoc = $this->talkToS1WS($s1Inv)['id'];
@@ -501,13 +509,17 @@ class WSSoapServer
         $this->log("sendTIRCarnetReceiptAdvice", $params); // log
 
         // login and auth in s1, getting token for transaction
-        $clientID = $this->get_clientID();
+        $clientID = $this->get_clientID_Sediu();
 
         // ------creaza transfer/retur in S1 din $params-------
         // stdClass > array
         $doc = $this->getTIRCarnetDespatchOrReceipt($params);
         // array > return/transfer carnets json
         if (isset($doc['Reference'])) {
+            $properBranchIRU = $this->getTransferBranch($params);
+            $details = $this->getDetailsS1WS($clientID, $properBranchIRU, -1, 'xyz132');
+            $properBranchS1 = $details['rows'][0]['branch'];
+            $clientID = $this->get_clientID_Branch($properBranchS1);
             $s1Inv = $this->phpArrayToJsonTransfer($clientID, $doc, true);
         } else {
             $s1Inv = $this->phpArrayToJsonRetur($clientID, $doc);
