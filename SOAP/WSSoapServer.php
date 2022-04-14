@@ -56,7 +56,7 @@ class WSSoapServer
     private function get_clientID()
     {
         // connect to S1 WS
-        $lr = $this->loginS1WS('webuser1', 'webuser123', '5001');
+        $lr = $this->loginS1WS('asktir_sediu', 'asktir_sediu', '5003');
         $clientID = $this->authS1WS($lr)['clientID'];
 
         return $clientID;
@@ -64,25 +64,41 @@ class WSSoapServer
 
     private function getTIRCarnetDespatchOrReceipt($params)
     {
+        $this->debug('getTIRCarnetDespatchOrReceipt params', $params);
         $arr = json_decode(json_encode($params), true);
-        $action = '';
-        $actionLines = '';
+        $this->debug('getTIRCarnetDespatchOrReceipt arr', $arr);
+        $action = [];
+        $actionLines = [];
 
-        if (isset($arr['tirCarnetDespatchAdvice'])) {
+        $this->debug('array_key_exists>TIRCarnetDespatchAdvice', array_key_exists('TIRCarnetDespatchAdvice', $arr));
+        $this->debug('arr[TIRCarnetDespatchAdvice]', $arr['TIRCarnetDespatchAdvice']);
+
+        //if key TIRCarnetDespatchAdvice exists in $arr then $action = $arr['TIRCarnetDespatchAdvice'] else if key tirCarnetDespatchAdvice exists then $action=$arr['tirCarnetDespatchAdvice'] else $action = $arr['TIRCarnetReceiptAdvice']
+        if (array_key_exists('TIRCarnetDespatchAdvice', $arr)) {
+            $action = $arr['TIRCarnetDespatchAdvice'];
+        } elseif (array_key_exists('tirCarnetDespatchAdvice', $arr)) {
             $action = $arr['tirCarnetDespatchAdvice'];
-        } else if (isset($arr['TIRCarnetReceiptAdvice'])) {
+        } else {
             $action = $arr['TIRCarnetReceiptAdvice'];
         }
 
-        if (isset($action['TIRCarnetDespatchLine'])) {
+        $this->debug('getTIRCarnetDespatchOrReceipt action', $action);
+
+        if (array_key_exists('TIRCarnetDespatchLine', $action)) {
             $actionLines = $action['TIRCarnetDespatchLine'];
+        } elseif (array_key_exists('tirCarnetDespatchLine', $action)) {
+            $actionLines = $action['tirCarnetDespatchLine'];
         } else {
             $actionLines = $action['TIRCarnetReceiptLine'];
         }
 
+        $this->debug('getTIRCarnetDespatchOrReceipt actionLines', $actionLines);
+
         // FINDOC
         $doc['Id'] = $action['Id']; // CCCIDTRANIRU
         $doc['IssueDate'] = $action['IssueDate']; // trndate, nu o voi folosi, se completeaza automat
+        if (isset($action['Reference']))
+            $doc['Reference'] = $action['Reference'];
 
         // id branch plecare/vanzare+transfer iesire sau sosire/retur+transfer intrare
         // [DespatchParty] poate fi [HaulierContact] la retur sau [AssociationOffice] la transferuri si vanzare
@@ -109,15 +125,15 @@ class WSSoapServer
         }
 
         $this->debug('DeliveryParty>haulierId', $action['DeliveryParty']['HaulierContact']['haulierId']);
-        $this->debug('DeliveryParty>AssociationOfficeId',  $action['DespatchParty']['AssociationOffice']['id']);
+        $this->debug('DeliveryParty>AssociationOfficeId',  $action['DeliveryParty']['AssociationOffice']['id']);
 
         //ITELINES
-        $this->debug('linii multiple', is_array($actionLines));
-        $i = 4;
-        if (is_array($actionLines)) {
+        $this->debug('continut linii', $actionLines);
+        $i = 0;
+        if (isset($actionLines[1])) {
             // linii multiple
             foreach ($actionLines as $curr_line) {
-                $this->debug("W$i", $curr_line);
+                $this->debug("Linia$i", $curr_line);
                 $lines[$i]['LineId'] = $curr_line['Id'];
                 $lines[$i]['LineQuantity'] = $curr_line['Quantity'];
                 $lines[$i]['LineVoletCount'] = $curr_line['TIRCarnetItem']['VoletCount'];
@@ -188,10 +204,14 @@ class WSSoapServer
 
     private function phpArrayToJsonInvoice($clientID, $doc)
     {
-        $details = $this->getDetailsS1WS($clientID, str_replace("-", "", substr($doc['IssueDate'], 0, 10)), $doc['DesPid'], substr($doc['DelPHaulierId'], 8));
+        $details = $this->getDetailsS1WS($clientID, $doc['DesPid'], $doc['DesPid'], substr($doc['DelPHaulierId'], 8));
         $branch = $details['rows'][0]['branch']; // select branch from branch where CCCASKTIRID=$doc['DesPid']
         $trdr = $details['rows'][0]['trdr']; // select trdr from trdr where code1 = substr($doc['DelPHaulierId'], 9)
         $series = $details['rows'][0]['series'];
+        //sediu nu vinde:
+        if ($branch == 1) {
+            $this->debug('eroare vanzare', 'sediu nu vinde');
+        }
         $linii = '';
         foreach ($doc['Lines'] as $linie) {
             $mtrl = $this->voletiToMtrl($linie['LineVoletCount']);
@@ -210,7 +230,7 @@ class WSSoapServer
         $s1Doc = '{
                 "service": "setData",
                 "clientID": "' . $clientID . '",
-                "appId": 5001,
+                "appId": 5003,
                 "OBJECT": "SALDOC",
                 "KEY": "",
                 "FORM":"AskTIRweb sales",
@@ -232,7 +252,7 @@ class WSSoapServer
 
     private function phpArrayToJsonRetur($clientID, $doc)
     {
-        $details = $this->getDetailsS1WS($clientID, str_replace("-", "", substr($doc['IssueDate'], 0, 10)), $doc['DelPid'], substr($doc['DesPHaulierId'], 8));
+        $details = $this->getDetailsS1WS($clientID, $doc['DelPid'], $doc['DelPid'], substr($doc['DesPHaulierId'], 8));
         $fromTrdr = $details['rows'][0]['trdr'];
         $toBranch = $details['rows'][0]['branch'];
         // retur la 3002 agentie (restul), 3004 sediu (cccasktirid = 0, branch=1)
@@ -262,7 +282,7 @@ class WSSoapServer
         $s1Doc = '{
                 "service": "setData",
                 "clientID": "' . $clientID . '",
-                "appId": 5001,
+                "appId": 5003,
                 "OBJECT": "SALDOC",
                 "KEY": "",
                 "FORM":"AskTIRweb returns",
@@ -273,6 +293,84 @@ class WSSoapServer
                             "FINSTATES": ' . $finstates . ',
                             "TRDR": ' . $fromTrdr . ',
                             "BRANCH": ' . $toBranch . '
+                        }
+                    ],
+                    "ITELINES": [' . $linii . '
+                    ]
+                }
+            }';
+
+        $this->debug('document s1', $s1Doc);
+        return $s1Doc;
+    }
+
+    private function phpArrayToJsonTransfer($clientID, $doc, $isIesire)
+    {
+        $this->debug('phpArrayToJsonTransfer doc', $doc);
+        $this->debug('DelPid', $doc['DelPid']);
+        $this->debug('DesPid', $doc['DesPid']);
+
+        $delPartyId = $doc['DesPid'];
+        $desPartyId = $doc['DelPid'];
+        
+        $details = $this->getDetailsS1WS($clientID, $delPartyId, $desPartyId, 'xyz132');
+        $this->debug('transfer details', $details);
+        $this->debug('transfer doc', $doc);
+
+        // iesire 3001/AskTIRweb - Transfer (Iesire), intrare 3002/AskTIRweb - Transfer (Intrare)
+        if (isset($isIesire) && $isIesire) {
+            $fromBranch = $details['rows'][0]['branch1'];
+            $toBranch = $details['rows'][0]['branch'];
+            $series = 3002;
+            $form = 'AskTIRweb - Transfer (Intrare)';
+            $finstates = 1;
+            $fromWhouse = 90;
+            $toWhouse = $toBranch;
+        } else {
+            $fromBranch = $details['rows'][0]['branch'];
+            $toBranch = $details['rows'][0]['branch1'];
+            $series = 3001;
+            $form = 'AskTIRweb - Transfer (Iesire)';
+            $finstates = 13;
+            $fromWhouse = $fromBranch;
+            $toWhouse = 90;
+        }
+       
+        $linii = '';
+        foreach ($doc['Lines'] as $linie) {
+            $mtrl = $this->voletiToMtrl($linie['LineVoletCount']);
+            $qty1 = $linie['LineQuantity'];
+            $cccsnstart = $linie['LineFirstTIRCarnetNumber'];
+            $linii .= '{
+                            "MTRL": "' . $mtrl . '",
+                            "CCCSNSTART": "' . $cccsnstart . '",
+                            "QTY2": "' . $qty1 . '",
+                            "QTY1": "' . $qty1 . '"
+                        },';
+        }
+
+        $linii = substr($linii, 0, strlen($linii) - 1);
+
+        $s1Doc = '{
+                "service": "setData",
+                "clientID": "' . $clientID . '",
+                "appId": 5003,
+                "OBJECT": "ITEDOC",
+                "KEY": "",
+                "FORM":"'.$form.'",
+                "DATA": {
+                    "ITEDOC": [
+                        {
+                            "SERIES": ' . $series . ',
+                            "FINSTATES": ' . $finstates . ',
+                            "BRANCH": ' . $fromBranch . '
+                        }
+                    ],
+                    "MTRDOC": [
+                        {
+                            "WHOUSE" : ' . $fromWhouse . ',
+                            "BRANCHSEC": ' . $toBranch . ',
+                            "WHOUSESEC": '.$toWhouse.'
                         }
                     ],
                     "ITELINES": [' . $linii . '
@@ -336,7 +434,7 @@ class WSSoapServer
         return $mtrl;
     }
 
-    private function getDetailsS1WS($clientID, $trndate, $asktirbranch, $haulierCode)
+    private function getDetailsS1WS($clientID, $asktirbranch, $asktirbranch1, $haulierCode)
     {
         // returns rows > branch, trdr
         /*
@@ -347,10 +445,11 @@ class WSSoapServer
         $detailsQry = '{
                 "service": "sqlData",
                 "clientID": "' . $clientID . '",
-                "appId": 5001,
+                "appId": 5003,
                 "SqlName": "getDetails",
 				"asktirhauliercode": "' . $haulierCode . '",
-				"asktirbranch": "' . $asktirbranch . '"
+				"asktirbranch": "' . $asktirbranch . '",
+                "asktirbranch1": "' . $asktirbranch1 . '"
 			}';
 
         $this->debug('details qry', $detailsQry);
@@ -362,7 +461,23 @@ class WSSoapServer
     public function sendTIRCarnetDespatchAdvice($params)
     {
         $this->log("sendTIRCarnetDespatchAdvice", $params); // log
-                                                            // cod creare transfer in s1
+        
+        // login and auth in s1, getting token for transaction
+        $clientID = $this->get_clientID();
+
+        // ------creaza transfer/retur in S1 din $params-------
+        // stdClass > array
+        $this->debug('sendTIRCarnetDespatchAdvice params', $params);
+
+        $doc = $this->getTIRCarnetDespatchOrReceipt($params);
+        $this->debug('sendTIRCarnetDespatchAdvice doc', $doc);
+        // array > return/transfer carnets json
+        $s1Inv = $this->phpArrayToJsonTransfer($clientID, $doc, false);
+        // send json to s1 and return newly created findoc
+        $findoc = $this->talkToS1WS($s1Inv)['id'];
+        // record findoc
+        $this->debug('newly created findoc', $findoc);
+
         $transactionEntryReference['_'] = '_';
         $transactionEntryReference['type'] = 'type';
         $transactionEntryReference['date'] = gmdate("Y-m-d\TH:i:s\Z");
@@ -376,7 +491,7 @@ class WSSoapServer
     {
         // return & transfer acknowledgement (transfer in)
         /*
-         * return are [Reference] care indica perechea transfer din (despatch)
+         * acknowledgement are [Reference] care indica perechea transfer din (despatch)
          * [Reference] => stdClass Object
          * (
          * [_] => 27673676
@@ -391,8 +506,12 @@ class WSSoapServer
         // ------creaza transfer/retur in S1 din $params-------
         // stdClass > array
         $doc = $this->getTIRCarnetDespatchOrReceipt($params);
-        // array > invoice json
-        $s1Inv = $this->phpArrayToJsonRetur($clientID, $doc);
+        // array > return/transfer carnets json
+        if (isset($doc['Reference'])) {
+            $s1Inv = $this->phpArrayToJsonTransfer($clientID, $doc, true);
+        } else {
+            $s1Inv = $this->phpArrayToJsonRetur($clientID, $doc);
+        }
         // send json to s1 and return newly created findoc
         $findoc = $this->talkToS1WS($s1Inv)['id'];
         // record findoc
