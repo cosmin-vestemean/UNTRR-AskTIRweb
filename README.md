@@ -5,7 +5,7 @@ AskTIRweb Team — September 24, 2020", capitolul 5.3.
 ## APIs implementate in SOAP server: 
 - authorizeAndCaptureTIRCarnetIssuanceTransaction (with no haulierAccount)
 >Without reservation In this mode of operation, after the issuance is finished successfully,
->there will be an asynchronous call to the authorizeAndCaptureTIRCarnetIssuanceTransaction method with tirCarnetDespatchAdvice and >optionally the selected haulierAccount if the Association chose to use Haulier orders.
+>there will be an asynchronous call to the authorizeAndCaptureTIRCarnetIssuanceTransaction method with tirCarnetDespatchAdvice and optionally the selected haulierAccount if the Association chose to use Haulier orders.
 - sendTIRCarnetDespatchAdvice
 - sendTIRCarnetReceiptAdvice
 
