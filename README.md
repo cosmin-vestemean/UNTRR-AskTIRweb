@@ -17,7 +17,7 @@ AskTIRweb Team — September 24, 2020", capitolul 5.3.
 https://github.com/cosmin-vestemean/UNTRR-AskTIRweb
 
 ## Instalare:
-- Copiati SOAP dir in html_docs (public html dir) pe server web
+- Copiati SOAP dir in html_docs (public html dir) pe server web (Este mecesar un server de web on some host)
 - Creati SOAPSECURITY script in S1 Import
 - Creati prin mostenire de la forms in uz form-urile din "S1 forms" and merge the code
 - Creati in SQL Scripts getDetails.sql
