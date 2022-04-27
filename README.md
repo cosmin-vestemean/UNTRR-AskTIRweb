@@ -37,7 +37,7 @@ https://github.com/cosmin-vestemean/UNTRR-AskTIRweb
     private function get_clientID_Branch($branch)
     {
         // connect to S1 WS
-        $lr = $this->loginS1WS('asktir_sediu', 'asktir_sediu', '5003');
+        $lr = $this->loginS1WS('username', 'password', '5003');
         $clientID = $this->authS1WS_Branch($lr, $branch)['clientID'];
 
         return $clientID;
