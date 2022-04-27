@@ -18,7 +18,8 @@ https://github.com/cosmin-vestemean/UNTRR-AskTIRweb
 - Copiati SOAP dir in html_docs pe server web
 - Creati prin mostenire de la forms in uz form-urile din "S1 forms" si merge codul
 - Creati in SQL Scripts getDetails.sql.
-- Creati un web service si cont aferent cu drepturi in toate filialele. (Web and Mobile/Cont web.jpg). Adaugati credentiale si appId in urmatoarele functii:
+- Creati un web service si cont aferent cu drepturi in toate filialele. (Web and Mobile/Cont web.jpg). 
+- Adaugati credentiale si appId in urmatoarele functii:
 
 ```
     private function get_clientID_Sediu()
