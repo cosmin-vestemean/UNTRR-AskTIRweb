@@ -15,8 +15,8 @@ Logging vars and intermediate sequences in the process: debug.txt
 https://github.com/cosmin-vestemean/UNTRR-AskTIRweb
 
 ## Instalare:
-- Copiati SOAP dir in html_docs pe server web
-- creati SOAPSECURITY script in S1 Import
+- Copiati SOAP dir in html_docs (public html dir) pe server web
+- Creati SOAPSECURITY script in S1 Import
 - Creati prin mostenire de la forms in uz form-urile din "S1 forms" si merge codul
 - Creati in SQL Scripts getDetails.sql
 - Creati un web service si cont aferent cu drepturi in toate filialele. (Web and Mobile/Cont web.jpg)
