@@ -11,6 +11,9 @@ Logging:
 Logging requests from IRU: log.txt.
 Logging vars and intermediate sequences in the process: debug.txt
 
+Resurse instalare:
+https://github.com/cosmin-vestemean/UNTRR-AskTIRweb
+
 Instalare:
 1. Copiati SOAP dir in html_docs pe server web
 2. Creati prin mostenire de la forms in uz form-urile din "S1 forms" si merge codul
