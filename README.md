@@ -10,6 +10,7 @@ AskTIRweb Team — September 24, 2020", capitolul 5.3.
 - sendTIRCarnetReceiptAdvice
 
 ## Logging:
+Fisierele se creaza la prima rulare a serverului.
 - Logging requests from IRU: log.txt.
 - Logging vars and intermediate sequences in the process: debug.txt
 
