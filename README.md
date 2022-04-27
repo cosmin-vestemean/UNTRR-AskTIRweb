@@ -15,7 +15,7 @@ Instalare:
 1. Copiati SOAP dir in html_docs pe server web
 2. Creati prin mostenire de la forms in uz form-urile din "S1 forms" si merge codul
 3. Creati in SQL Scripts getDetails.sql.
-4. Creati un web service si cont aferent cu drepturi in toate filialele. Adaugati credentiale si appId in urmatoarele functii:
+4. Creati un web service si cont aferent cu drepturi in toate filialele (vezi folder "Web and Mobile"). Adaugati credentiale si appId in urmatoarele functii:
 
     private function get_clientID_Sediu()
     {
