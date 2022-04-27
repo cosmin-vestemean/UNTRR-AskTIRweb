@@ -4,6 +4,9 @@ AskTIRweb Team — September 24, 2020", capitolul 5.3.
 
 ## APIs implementate in SOAP server: 
 - authorizeAndCaptureTIRCarnetIssuanceTransaction
+>Using reservation In this mode of operation, there will be a synchronous call to the
+>authorizeTIRCarnetIssuanceTransactionmethod with tirCarnetDespatchAdvice and
+>optionally the selected haulierAccount if the Association chose to use Haulier orders.
 - sendTIRCarnetDespatchAdvice
 - sendTIRCarnetReceiptAdvice
 
