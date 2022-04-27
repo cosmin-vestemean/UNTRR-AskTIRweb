@@ -2,19 +2,19 @@
 Integrare UNTRR S1 cu AskTIRweb WS, server SOAP intermediar, conform specificatii din "AskTIRweb Integration WebServices
 AskTIRweb Team — September 24, 2020", capitolul 5.3.
 
-##APIs implementate: 
+## APIs implementate: 
 -authorizeAndCaptureTIRCarnetIssuanceTransaction
 -sendTIRCarnetDespatchAdvice
 -sendTIRCarnetReceiptAdvice
 
-##Logging:
+## Logging:
 Logging requests from IRU: log.txt.
 Logging vars and intermediate sequences in the process: debug.txt
 
-##Resurse instalare:
+## Resurse instalare:
 https://github.com/cosmin-vestemean/UNTRR-AskTIRweb
 
-##Instalare:
+## Instalare:
 1. Copiati SOAP dir in html_docs pe server web
 2. Creati prin mostenire de la forms in uz form-urile din "S1 forms" si merge codul
 3. Creati in SQL Scripts getDetails.sql.
