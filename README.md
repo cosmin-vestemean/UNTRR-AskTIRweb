@@ -16,16 +16,17 @@ https://github.com/cosmin-vestemean/UNTRR-AskTIRweb
 
 ## Instalare:
 - Copiati SOAP dir in html_docs pe server web
+- creati SOAPSECURITY script in S1 Import
 - Creati prin mostenire de la forms in uz form-urile din "S1 forms" si merge codul
-- Creati in SQL Scripts getDetails.sql.
-- Creati un web service si cont aferent cu drepturi in toate filialele. (Web and Mobile/Cont web.jpg). 
+- Creati in SQL Scripts getDetails.sql
+- Creati un web service si cont aferent cu drepturi in toate filialele. (Web and Mobile/Cont web.jpg)
 - Adaugati credentiale si appId in urmatoarele functii:
 
 ```
     private function get_clientID_Sediu()
     {
         // connect to S1 WS
-        $lr = $this->loginS1WS('asktir_sediu', 'asktir_sediu', '5003');
+        $lr = $this->loginS1WS('username', 'password', '5003');
         $clientID = $this->authS1WS($lr)['clientID'];
 
         return $clientID;

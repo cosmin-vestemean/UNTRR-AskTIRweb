@@ -1,5 +1,6 @@
 var SOAP = (function () {
     try {
+        //Return secured SOAP header to be concat with the rest of envelope
         // wsse.js - Generate WSSE authentication header in JavaScript
         // (C) 2005 Victor R. Ruiz <victor*sixapart.com> - http://rvr.typepad.com/
         //
