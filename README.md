@@ -15,10 +15,10 @@ Logging vars and intermediate sequences in the process: debug.txt
 https://github.com/cosmin-vestemean/UNTRR-AskTIRweb
 
 ## Instalare:
-1. Copiati SOAP dir in html_docs pe server web
-2. Creati prin mostenire de la forms in uz form-urile din "S1 forms" si merge codul
-3. Creati in SQL Scripts getDetails.sql.
-4. Creati un web service si cont aferent cu drepturi in toate filialele. (Web and Mobile/Cont web.jpg). Adaugati credentiale si appId in urmatoarele functii:
+- Copiati SOAP dir in html_docs pe server web
+- Creati prin mostenire de la forms in uz form-urile din "S1 forms" si merge codul
+- Creati in SQL Scripts getDetails.sql.
+- Creati un web service si cont aferent cu drepturi in toate filialele. (Web and Mobile/Cont web.jpg). Adaugati credentiale si appId in urmatoarele functii:
 
 ```
     private function get_clientID_Sediu()
