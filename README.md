@@ -46,4 +46,4 @@ https://github.com/cosmin-vestemean/UNTRR-AskTIRweb
 ```
 
 ## Teste:
-Atasata colectia Postman("Db test IRU/UNTRR_IRU.postman_collection.json")
+Atasata colectia Postman ("Db test IRU/UNTRR_IRU.postman_collection.json")
