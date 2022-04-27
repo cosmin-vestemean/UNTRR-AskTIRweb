@@ -10,8 +10,8 @@ AskTIRweb Team — September 24, 2020", capitolul 5.3.
 - sendTIRCarnetReceiptAdvice
 
 ## Logging:
-Logging requests from IRU: log.txt.
-Logging vars and intermediate sequences in the process: debug.txt
+- Logging requests from IRU: log.txt.
+- Logging vars and intermediate sequences in the process: debug.txt
 
 ## Resurse instalare:
 https://github.com/cosmin-vestemean/UNTRR-AskTIRweb
