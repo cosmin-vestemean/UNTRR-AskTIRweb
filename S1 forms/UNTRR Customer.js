@@ -1122,7 +1122,14 @@ function EXECCOMMAND(cmd) {
     if (cmd == '20201218') {
         //X.WARNING(new Date().toISOString());
         //debugger;
-        sendHaulierToIRU(haulierServiceDemo);
+        var response = sendHaulierToIRU(haulierServiceDemo),
+        txtResponse = response.text;
+
+        //TO DO: check if the response is ok
+        //daca a fost trimis transportatorul la IRU cu succes, trimite-i vehiculele
+        //if response...
+        if (txtResponse.indexOf('OK') > -1) {}
+        
         TRUCKS.FIRST;
         //while (!TRUCKS.EOF) {
         //if (TRUCKS.CCCTIR) {
@@ -1542,6 +1549,10 @@ function sendHaulierToIRU(url) {
             } else {
                 X.WARNING(decode_utf8(xmlResponse.text));
             }
+
+            return xmlResponse;
+
+            
             //xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
             //xmlDoc.async = "false";
             //xmlDoc.loadXML(xmlResponse.xml);
@@ -2011,7 +2022,7 @@ function createVehicle(tir, veh, com) {
                 requiredInXMLSchema: true,
                 XML: function () {
                     if (this.UI)
-                        return '<' + com + ':Type>' + this.UI + '</' + com + ':Type>';
+                        return '<' + com + ':Type>http://www.asktirweb.org/vehicle/registration-number</' + com + ':Type>';
                     else
                         return '';
                 }
