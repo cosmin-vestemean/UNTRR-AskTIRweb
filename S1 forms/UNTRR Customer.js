@@ -1125,11 +1125,11 @@ function EXECCOMMAND(cmd) {
         var response = sendHaulierToIRU(haulierServiceDemo),
         txtResponse = response.text;
 
-        //TO DO: check if the response is ok
+        //TODO: check if the response is ok
         //daca a fost trimis transportatorul la IRU cu succes, trimite-i vehiculele
         //if response...
         if (txtResponse.indexOf('OK') > -1) {}
-        
+
         TRUCKS.FIRST;
         //while (!TRUCKS.EOF) {
         //if (TRUCKS.CCCTIR) {
@@ -1478,6 +1478,7 @@ function createHaulierEnvelope() {
         }
 
         var ret = xmlDoc.xml;
+        //TODO: comment out warning
         X.WARNING(ret);
         return ret;
     }
@@ -1508,7 +1509,8 @@ function createVehicleEnvelope() {
     }
 
     var ret = xmlDoc.xml;
-    X.WARNING(ret + '/' + ret.length);
+    //TODO: comment out warning
+    X.WARNING(ret);
     return ret;
 }
 
