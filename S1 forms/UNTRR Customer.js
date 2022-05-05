@@ -1,3 +1,13 @@
+/*
+CREATE TABLE CCCXML2IRU(
+CCCXML2IRU INT NOT NULL PRIMARY KEY IDENTITY(1,1),
+SENDER SMALLINT NOT NULL,
+XML VARCHAR(MAX),
+RESPONSE VARCHAR(MAX),
+INSDATE DATETIME,
+TRDR INT NOT NULL
+)
+*/
 var haulierServiceName = 'TIRHaulierService-1',
 accountingServiceName = 'TIRAccountingProxy-1',
 //demo
@@ -1525,6 +1535,7 @@ function sendHaulierToIRU(url) {
         if (xmlHttp && xmlHttp.readyState && xmlHttp.readyState == 4) {
             //debugger;
             xmlResponse = xmlHttp.responseXML;
+            //X.RUNSQL("INSERT INTO CCCXML2IRU (SENDER, XML, RESPONSE, INSDATE, TRDR) VALUES (1, '"+soap.replace(/"/g, "**")+"', '"+xmlResponse.text.replace(/"/g, "**")+"', getDate(), "+CUSTOMER.TRDR+")", null);
             //The provided entity already exist
             if (xmlResponse.text.indexOf('The provided haulier already exist') !== -1) {
                 X.WARNING('Transportatorul fost introdus deja, incercare modificare.');
@@ -1563,6 +1574,7 @@ function sendVehicleToIRU(url) {
         if (xmlHttp && xmlHttp.readyState && xmlHttp.readyState == 4) {
             //debugger;
             xmlResponse = xmlHttp.responseXML;
+            //X.RUNSQL("INSERT INTO CCCXML2IRU (SENDER, XML, RESPONSE, INSDATE, TRDR) VALUES (2, '"+soap.replace(/"/g, "**")+"', '"+xmlResponse.text.replace(/"/g, "**")+"', getDate(), "+CUSTOMER.TRDR+")", null);
             //The provided entity already exist
             if (xmlResponse.text.indexOf('The provided vehicle already exist') !== -1) {
                 X.WARNING('Vehiculul ' + TRUCKS.TRUCKS + ' a fost introdus deja, incercare modificare.');
@@ -1966,7 +1978,7 @@ function createVehicle(tir, veh, com) {
                 requiredInXMLSchema: true,
                 XML: function () {
                     if (this.UI)
-                        return '<' + veh + ':TypeCode>' + this.UI + '</' + veh + ':TypeCode>';
+                        return '<' + veh + ':TypeCode type="http://www.asktirweb.org/vehicle/type">' + this.UI + '</' + veh + ':TypeCode>';
                     else
                         return '';
                 }
@@ -2137,7 +2149,7 @@ function initVehicle() {
     debugger;
     v.set_vehicle_ns('TRUCKS.CCCCARMODEL', TRUCKS.CCCCARMODEL, 'TRUCKS.WEIGHT', TRUCKS.WEIGHT);
     v.set_Type_ns('TRUCKS.CCCCARCLASS', X.SQL('SELECT CCCDESCEN FROM CCCCARCLASS WHERE CCCCARCLASS = ' + TRUCKS.CCCCARCLASS, null));
-    v.set_RegistrationNumber_ns('TRUCKS.TRUCKS', TRUCKS.TRUCKS, 'E', 'E');
+    v.set_RegistrationNumber_ns('TRUCKS.TRUCKS', X.SQL('SELECT NAME FROM TRUCKS WHERE TRUCKS='+TRUCKS.TRUCKS + ' AND TRDR='+CUSTOMER.TRDR + ' AND COMPANY='+X.SYS.COMPANY, null), 'E', 'E');
     v.set_ContractualRelationship_ns('OWNERSHIP', 'OWNERSHIP');
 
     var mess = v.get_Messages();

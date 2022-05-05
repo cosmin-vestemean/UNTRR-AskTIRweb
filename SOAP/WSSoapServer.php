@@ -4,6 +4,19 @@ ini_set("soap.wsdl_cache_enabled", "0");
 //define constants for url and namespace
 define('S1WS_URL', 'https://dev-untrronline.oncloud.gr/s1services');
 
+/*
+update branch set cccasktirid = 0 where branch=1
+update branch set cccasktirid=1 where branch=5
+update branch set cccasktirid=2 where branch=2
+update branch set cccasktirid=3 where branch=6
+update branch set cccasktirid=4 where branch=8
+update branch set cccasktirid=5 where branch=3
+update branch set cccasktirid=6 where branch=11
+update branch set cccasktirid=7 where branch=9
+update branch set cccasktirid=8 where branch=10
+update branch set cccasktirid=9 where branch=13
+*/
+
 class WSSoapServer
 {
 
