@@ -1547,7 +1547,7 @@ function sendHaulierToIRU(url) {
             //X.RUNSQL("INSERT INTO CCCXML2IRU (SENDER, XML, RESPONSE, INSDATE, TRDR) VALUES (1, '"+soap.replace(/"/g, "**")+"', '"+xmlResponse.text.replace(/"/g, "**")+"', getDate(), "+CUSTOMER.TRDR+")", null);
             //The provided entity already exist
             if (xmlResponse.text.indexOf('The provided haulier already exist') !== -1) {
-                X.WARNING('Transportatorul fost introdus deja, incercare modificare.');
+                X.WARNING('Transportatorul fost introdus anterior.');
             } else {
                 X.WARNING(decode_utf8(xmlResponse.text));
             }
@@ -1590,7 +1590,7 @@ function sendVehicleToIRU(url) {
             //X.RUNSQL("INSERT INTO CCCXML2IRU (SENDER, XML, RESPONSE, INSDATE, TRDR) VALUES (2, '"+soap.replace(/"/g, "**")+"', '"+xmlResponse.text.replace(/"/g, "**")+"', getDate(), "+CUSTOMER.TRDR+")", null);
             //The provided entity already exist
             if (xmlResponse.text.indexOf('The provided vehicle already exist') !== -1) {
-                X.WARNING('Vehiculul ' + TRUCKS.TRUCKS + ' a fost introdus deja, incercare modificare.');
+                X.WARNING('Vehiculul cu numarul ' + X.SQL('SELECT NAME FROM TRUCKS WHERE TRUCKS='+TRUCKS.TRUCKS + ' AND TRDR=' + CUSTOMER.TRDR, null) + ' a fost introdus anterior.');
             } else {
                 X.WARNING(decode_utf8(xmlResponse.text));
             }
