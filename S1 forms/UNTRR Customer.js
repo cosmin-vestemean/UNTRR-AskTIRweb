@@ -6,25 +6,28 @@ XML VARCHAR(MAX),
 RESPONSE VARCHAR(MAX),
 INSDATE DATETIME,
 TRDR INT NOT NULL
+,CONNECTIONSTATUS INT
 )
 */
 var haulierServiceName = 'TIRHaulierService-1',
-accountingServiceName = 'TIRAccountingProxy-1',
-//demo
-hostDemo = 'https://wsdemo.asktirweb.org',
-servicesDemo = hostDemo + '/asktirweb-integration/services/',
-haulierServiceDemo = servicesDemo + haulierServiceName,
-accountingServiceDemo = servicesDemo + accountingServiceName,
-//production
-hostProd = 'http://www.asktirweb.org',
-servicesProd = hostProd + '/services/',
-haulierServiceProd = servicesProd + haulierServiceName,
-modelsProd = hostProd + '/model/',
-commonModel = modelsProd + 'common-1',
-haulierModel = modelsProd + 'haulier-1',
-vehicleModel = modelsProd + 'vehicle-1',
-//soap
-w3Env = 'http://www.w3.org/2003/05/soap-envelope';
+    accountingServiceName = 'TIRAccountingProxy-1',
+    //demo
+    hostDemo = 'https://wsdemo.asktirweb.org',
+    servicesDemo = hostDemo + '/asktirweb-integration/services/',
+    haulierServiceDemo = servicesDemo + haulierServiceName,
+    accountingServiceDemo = servicesDemo + accountingServiceName,
+    //production
+    hostProd = 'http://www.asktirweb.org',
+    servicesProd = hostProd + '/services/',
+    haulierServiceProd = servicesProd + haulierServiceName,
+    modelsProd = hostProd + '/model/',
+    commonModel = modelsProd + 'common-1',
+    haulierModel = modelsProd + 'haulier-1',
+    vehicleModel = modelsProd + 'vehicle-1',
+    //soap
+    w3Env = 'http://www.w3.org/2003/05/soap-envelope',
+    response_from_IRU = '',
+    debugg_mode = true;
 
 /*
 mime-charset = 1*<Any CHAR except SPACE, CTLs, and cspecials>
@@ -180,10 +183,10 @@ function calcul_cotizatie() {
         suma = (t5 * p1);
         pcccmfp = 1;
     } else
-        if ((t3 == 1) || (t4 == 1)) {
-            suma = p2;
-            pcccaace = 1;
-        }
+    if ((t3 == 1) || (t4 == 1)) {
+        suma = p2;
+        pcccaace = 1;
+    }
     textS = 'update cccsubs set cccfee=' + suma + ', cccparc=' + t5 + ' where ccccustomer=' + CUSTOMER.TRDR + ' and cccinv=0 and ((cccmonth>=' + _Luna + ' and cccyear=' + _Anul + ') or cccyear>' + _Anul + ')';
     X.EVAL('RunSQL("' + textS + '")');
 }
@@ -991,8 +994,7 @@ function VerificareCNP() {
     psTrNo = CUSTOMER.AFM;
     lung = psTrNo.length;
 
-    if (lung != 13) {}
-    else {
+    if (lung != 13) {} else {
         c1 = psTrNo.substring(0, 1);
         c2 = psTrNo.substring(1, 2);
         c3 = psTrNo.substring(2, 3);
@@ -1019,8 +1021,7 @@ function VerificareCNP() {
 function VerificareCIF() {
     psTrCIF = CUSTOMER.AFM;
     lung = psTrCIF.length;
-    if (lung > 10) {}
-    else {
+    if (lung > 10) {} else {
         if (lung != 10)
             for (i = 1; i <= 10 - lung; i++)
                 psTrCIF = '0' + psTrCIF;
@@ -1064,8 +1065,7 @@ function ON_CUSTOMER_AFM() {
     if (cod_client.length == 0)
         CUSTOMER.CODE = CUSTOMER.AFM;
 
-    if ((CUSTOMER.CCCPERSFJ == 1) || (CUSTOMER.CCCPERSFJ == 3)) {}
-    else {
+    if ((CUSTOMER.CCCPERSFJ == 1) || (CUSTOMER.CCCPERSFJ == 3)) {} else {
         vAnswer = X.ASK('Preluare date', 'Doriti preluarea datelor clientului?');
         if (vAnswer == 6) {
             DsCheie = X.GETSQLDATASET('select cheie from ccccheie', null);
@@ -1090,7 +1090,7 @@ function EXECCOMMAND(cmd) {
         stDate += toDate.getDate();
 
         areAutorizatie = X.SQL('select count(*) from cccoldcode where ccccustomer = ' + CUSTOMER.TRDR +
-                ' and cccdatech<' + String.fromCharCode(39) + stDate + String.fromCharCode(39) + ' and cccdatainc>' + String.fromCharCode(39) + stDate + String.fromCharCode(39), null);
+            ' and cccdatech<' + String.fromCharCode(39) + stDate + String.fromCharCode(39) + ' and cccdatainc>' + String.fromCharCode(39) + stDate + String.fromCharCode(39), null);
         if (areAutorizatie > 0) {
             X.WARNING('Atentie: Clientul selectat are autorizatie vamala valabila. Nu-i puteti schimba codul!');
             wrong_count = 1;
@@ -1120,23 +1120,20 @@ function EXECCOMMAND(cmd) {
     }
 
     if (cmd == '20201218') {
-        //X.WARNING(new Date().toISOString());
-        //debugger;
-        var response = sendHaulierToIRU(haulierServiceDemo),
-        txtResponse = response.text;
+        debugger;
+        sendHaulierToIRU(haulierServiceDemo);
 
         //TODO: check if the response is ok
         //daca a fost trimis transportatorul la IRU cu succes, trimite-i vehiculele
-        //if response...
-        if (txtResponse.indexOf('OK') > -1) {}
+        //if response...        
 
         TRUCKS.FIRST;
-        //while (!TRUCKS.EOF) {
-        //if (TRUCKS.CCCTIR) {
-        sendVehicleToIRU(haulierServiceDemo);
-        //}
-        //TRUCKS.NEXT;
-        //}
+        while (!TRUCKS.EOF) {
+            //if (TRUCKS.CCCTIR) {
+            sendVehicleToIRU(haulierServiceDemo);
+            //}
+            TRUCKS.NEXT;
+        }
     }
 }
 
@@ -1162,13 +1159,13 @@ function ON_SFCOTIZATIE_SHOW() {
         if (Ds13.tprms == 3500) {
             vIncerti = vIncerti + Ds13.ltrnval;
         } else
-            if (Ds13.tprms == 3501) {
-                vIncerti = vIncerti - Ds13.ltrnval;
-            } else
-                if (Ds13.tprms == 3502) {
-                    vPierdut = vPierdut + Ds13.ltrnval;
-                } else
-                    vIncasat = vIncasat + Ds13.ltrnval;
+        if (Ds13.tprms == 3501) {
+            vIncerti = vIncerti - Ds13.ltrnval;
+        } else
+        if (Ds13.tprms == 3502) {
+            vPierdut = vPierdut + Ds13.ltrnval;
+        } else
+            vIncasat = vIncasat + Ds13.ltrnval;
         Ds13.NEXT;
     }
 
@@ -1188,8 +1185,8 @@ function ON_SFGARANTII_SHOW() {
     }
 
     Ds = X.GETSQLDATASET('SELECT SERIES, DATEOFS, FINALDATE, SOCURRENCY, CHEQUEBAL ' +
-            'FROM CHEQUE ' +
-            'WHERE TRDR=' + CUSTOMER.TRDR, null);
+        'FROM CHEQUE ' +
+        'WHERE TRDR=' + CUSTOMER.TRDR, null);
     Ds.FIRST;
     while (!Ds.Eof) {
         CCCGARANTII.APPEND;
@@ -1468,7 +1465,7 @@ function createHaulierEnvelope() {
             objSecHed.createHeader() +
             '<soap:Body>' + haulierXML.message + '</soap:Body>' +
             '</soap:Envelope>',
-        xmlDoc = new ActiveXObject('Microsoft.XMLDOM');
+            xmlDoc = new ActiveXObject('Microsoft.XMLDOM');
         xmlDoc.async = 'false';
         xmlDoc.loadXML(env);
         var parseErr = xmlDoc.parseError;
@@ -1478,8 +1475,8 @@ function createHaulierEnvelope() {
         }
 
         var ret = xmlDoc.xml;
-        //TODO: comment out warning
-        X.WARNING(ret);
+        if (debugg_mode)
+            X.WARNING(ret);
         return ret;
     }
 }
@@ -1499,7 +1496,7 @@ function createVehicleEnvelope() {
         objSecHed.createHeader() +
         '<soap:Body>' + vehicleXML.message + '</soap:Body>' +
         '</soap:Envelope>',
-    xmlDoc = new ActiveXObject('Microsoft.XMLDOM');
+        xmlDoc = new ActiveXObject('Microsoft.XMLDOM');
     xmlDoc.async = 'false';
     xmlDoc.loadXML(env);
     var parseErr = xmlDoc.parseError;
@@ -1509,8 +1506,8 @@ function createVehicleEnvelope() {
     }
 
     var ret = xmlDoc.xml;
-    //TODO: comment out warning
-    X.WARNING(ret);
+    if (debugg_mode)
+        X.WARNING(ret);
     return ret;
 }
 
@@ -1518,7 +1515,7 @@ var objSecHed = {};
 
 function loadSecureHeader() {
     var dsSoImport,
-    jsCode;
+        jsCode;
 
     if (Object.keys(objSecHed).length === 0 && objSecHed.constructor === Object) {
         dsSoImport = X.GETSQLDATASET("SELECT SOIMPORT FROM SOIMPORT WHERE CODE='SOAPSECURITY'", null);
@@ -1531,7 +1528,8 @@ function loadSecureHeader() {
 
 function sendHaulierToIRU(url) {
     var xmlHttp = createRequest(),
-    soap = createHaulierEnvelope();
+        soap = createHaulierEnvelope(),
+        msg = '';
     if (soap == '1899') {
         X.WARNING('Nu s-a transmis nimic.\nVerificati data admitere TIR.');
         return;
@@ -1539,22 +1537,27 @@ function sendHaulierToIRU(url) {
         return;
     }
 
+    response_from_IRU = '';
+
     xmlHttp.open("POST", url, true);
     xmlHttp.onreadystatechange = function () {
         if (xmlHttp && xmlHttp.readyState && xmlHttp.readyState == 4) {
             //debugger;
             xmlResponse = xmlHttp.responseXML;
-            //X.RUNSQL("INSERT INTO CCCXML2IRU (SENDER, XML, RESPONSE, INSDATE, TRDR) VALUES (1, '"+soap.replace(/"/g, "**")+"', '"+xmlResponse.text.replace(/"/g, "**")+"', getDate(), "+CUSTOMER.TRDR+")", null);
+            //TODO:
+            //X.RUNSQL("INSERT INTO CCCXML2IRU (SENDER, XML, RESPONSE, INSDATE, TRDR, CONNECTIONSTATUS) VALUES (1, '"+soap.replace(/"/g, "**")+"', '"+xmlResponse.text.replace(/"/g, "**")+"', getDate(), "+CUSTOMER.TRDR+", "+xmlHttp.status+")", null);
             //The provided entity already exist
             if (xmlResponse.text.indexOf('The provided haulier already exist') !== -1) {
-                X.WARNING('Transportatorul fost introdus anterior.');
+                msg = 'Transportatorul fost introdus anterior.';
             } else {
-                X.WARNING(decode_utf8(xmlResponse.text));
+                msg = decode_utf8(xmlResponse.text);
             }
 
-            return xmlResponse;
+            response_from_IRU += msg + '\n';
 
-            
+            if (debugg_mode)
+                X.WARNING(msg);
+
             //xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
             //xmlDoc.async = "false";
             //xmlDoc.loadXML(xmlResponse.xml);
@@ -1576,7 +1579,10 @@ function sendHaulierToIRU(url) {
 
 function sendVehicleToIRU(url) {
     var xmlHttp = createRequest(),
-    soap = createVehicleEnvelope();
+        soap = createVehicleEnvelope(),
+        msg = '',
+        nr_linie = TRUCKS.RECNO,
+        nrVeh = X.SQL('SELECT NAME FROM TRUCKS WHERE TRUCKS=' + TRUCKS.TRUCKS + ' AND TRDR=' + CUSTOMER.TRDR, null);
 
     if (soap == 'xmlError') {
         return;
@@ -1587,13 +1593,22 @@ function sendVehicleToIRU(url) {
         if (xmlHttp && xmlHttp.readyState && xmlHttp.readyState == 4) {
             //debugger;
             xmlResponse = xmlHttp.responseXML;
-            //X.RUNSQL("INSERT INTO CCCXML2IRU (SENDER, XML, RESPONSE, INSDATE, TRDR) VALUES (2, '"+soap.replace(/"/g, "**")+"', '"+xmlResponse.text.replace(/"/g, "**")+"', getDate(), "+CUSTOMER.TRDR+")", null);
+            X.RUNSQL("INSERT INTO CCCXML2IRU (SENDER, XML, RESPONSE, INSDATE, TRDR, CONNECTIONSTATUS) VALUES (2, '" + soap.replace(/"/g, "**") + "', '" + xmlResponse.text.replace(/"/g, "**") + "', getDate(), " + CUSTOMER.TRDR + ", " + xmlHttp.status + ")", null);
             //The provided entity already exist
             if (xmlResponse.text.indexOf('The provided vehicle already exist') !== -1) {
-                X.WARNING('Vehiculul cu numarul ' + X.SQL('SELECT NAME FROM TRUCKS WHERE TRUCKS='+TRUCKS.TRUCKS + ' AND TRDR=' + CUSTOMER.TRDR, null) + ' a fost introdus anterior.');
+                msg = 'Vehiculul cu numarul ' + nrVeh + ' a fost introdus anterior.';
             } else {
-                X.WARNING(decode_utf8(xmlResponse.text));
+                //msg = nrVeh + '\n' + decode_utf8(xmlResponse.text);
+                msg = nrVeh + '\n' + decode_utf8(xmlResponse.text);
             }
+
+            response_from_IRU += msg + '\n';
+
+            if (debugg_mode)
+                X.WARNING(msg);
+
+            vehCallBack(nr_linie);
+
             //xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
             //xmlDoc.async = "false";
             //xmlDoc.loadXML(xmlResponse.xml);
@@ -1611,6 +1626,66 @@ function sendVehicleToIRU(url) {
     xmlHttp.setRequestHeader("Accept-Encoding", "identity");
     xmlHttp.setRequestHeader("User-Agent", "Apache-HttpClient/4.5.5 (Java/12.0.1)");
     xmlHttp.send(soap);
+}
+
+function vehCallBack(nr_linie) {
+    if (nr_linie == TRUCKS.RECORDCOUNT) {
+        if (response_from_IRU.length > 0) {
+            X.WARNING(response_from_IRU);
+        }
+    }
+}
+
+// LZW-compress a string
+function lzw_encode(s) {
+    var dict = {};
+    var data = (s + "").split("");
+    var out = [];
+    var currChar;
+    var phrase = data[0];
+    var code = 256;
+    for (var i = 1; i < data.length; i++) {
+        currChar = data[i];
+        if (dict[phrase + currChar] != null) {
+            phrase += currChar;
+        } else {
+            out.push(phrase.length > 1 ? dict[phrase] : phrase.charCodeAt(0));
+            dict[phrase + currChar] = code;
+            code++;
+            phrase = currChar;
+        }
+    }
+    out.push(phrase.length > 1 ? dict[phrase] : phrase.charCodeAt(0));
+    for (var i = 0; i < out.length; i++) {
+        out[i] = String.fromCharCode(out[i]);
+    }
+    return out.join("");
+}
+
+// Decompress an LZW-encoded string
+function lzw_decode(s) {
+    var dict = {};
+    var data = (s + "").split("");
+    var currChar = data[0];
+    var oldPhrase = currChar;
+    var out = [currChar];
+    var code = 256;
+    var phrase;
+    for (var i = 1; i < data.length; i++) {
+        var currCode = data[i].charCodeAt(0);
+        if (currCode < 256) {
+            phrase = data[i];
+        } else {
+            phrase = dict[currCode] ? dict[currCode] : (oldPhrase + currChar);
+        }
+        out.push(phrase);
+        currChar = phrase.charAt(0);
+        dict[code] = oldPhrase + currChar;
+        code++;
+        oldPhrase = phrase;
+    }
+
+    return out.join("");
 }
 
 function lengthInUtf8Bytes(str) {
@@ -1633,11 +1708,11 @@ function createRequest() {
 }
 
 function encode_utf8(s) {
-    return unescape(encodeURIComponent(s));
+    return encodeURIComponent(s);
 }
 
 function decode_utf8(s) {
-    return decodeURIComponent(escape(s));
+    return decodeURIComponent(s);
 }
 
 //end
@@ -1654,170 +1729,170 @@ function ON_LOCATE() {
 
 function createHaulier(nsHaulierService, nsHaulierModel, nsCommon) {
     var _haulier_ns = {
-        Count: 0,
-        Start: {
-            XML: function () {
-                return '<' + nsHaulierService + ':haulier>';
-            }
-        },
-        Id: {
-            UI: null,
-            requiredInXMLSchema: true,
-            XML: function () {
-                if (this.UI)
-                    return '<' + nsHaulierModel + ':Id>' + 'ROU/050/' + this.UI.toString() + '</' + nsHaulierModel + ':Id>';
-                else
-                    return '';
-            }
-        },
-        OrganisationName: {
-            UI: '',
-            requiredInXMLSchema: true,
-            XML: function () {
-                if (this.UI)
-                    return '<' + nsHaulierModel + ':OrganisationName>' + this.UI + '</' + nsHaulierModel + ':OrganisationName>';
-                else
-                    return '';
-            }
-        },
-        NationalityType: {
-            UI: '',
-            requiredInXMLSchema: true,
-            XML: function () {
-                if (this.UI)
-                    return '<' + nsHaulierModel + ':NationalityType>' + this.UI + '</' + nsHaulierModel + ':NationalityType>';
-                else
-                    return '';
-            }
-        },
-        Stop: {
-            XML: function () {
-                return '</' + nsHaulierService + ':haulier>';
-            }
-        }
-    },
-    _legalLocation_ns = {
-        Count: 0,
-        Start: {
-            XML: function () {
-                return '<' + nsHaulierService + ':legalLocation>';
-            }
-        },
-        Addressee: {
-            UI: null,
-            requiredInXMLSchema: true,
-            XML: function () {
-                if (this.UI)
-                    return '<' + nsCommon + ':Addressee>' + this.UI + '</' + nsCommon + ':Addressee>';
-                else
-                    return '';
-            }
-        },
-        Address: {
             Count: 0,
             Start: {
                 XML: function () {
-                    return '<' + nsCommon + ':Address>';
+                    return '<' + nsHaulierService + ':haulier>';
                 }
             },
-            AddressLine: {
+            Id: {
                 UI: null,
                 requiredInXMLSchema: true,
                 XML: function () {
                     if (this.UI)
-                        return '<' + nsCommon + ':AddressLines><' + nsCommon + ':AddressLine>' + this.UI + '</' + nsCommon + ':AddressLine></' + nsCommon + ':AddressLines>';
+                        return '<' + nsHaulierModel + ':Id>' + 'ROU/050/' + this.UI.toString() + '</' + nsHaulierModel + ':Id>';
                     else
                         return '';
                 }
             },
-            Locality: {
-                UI: null,
+            OrganisationName: {
+                UI: '',
                 requiredInXMLSchema: true,
                 XML: function () {
                     if (this.UI)
-                        return '<' + nsCommon + ':Locality>' + this.UI + '</' + nsCommon + ':Locality>';
+                        return '<' + nsHaulierModel + ':OrganisationName>' + this.UI + '</' + nsHaulierModel + ':OrganisationName>';
                     else
                         return '';
                 }
             },
-            PostalCode: {
-                UI: null,
+            NationalityType: {
+                UI: '',
                 requiredInXMLSchema: true,
                 XML: function () {
                     if (this.UI)
-                        return '<' + nsCommon + ':PostalCode>' + this.UI + '</' + nsCommon + ':PostalCode>';
-                    else
-                        return '';
-                }
-            },
-            CountryCode: {
-                UI: null,
-                requiredInXMLSchema: true,
-                XML: function () {
-                    if (this.UI)
-                        return '<' + nsCommon + ':CountryCode>' + this.UI + '</' + nsCommon + ':CountryCode>';
+                        return '<' + nsHaulierModel + ':NationalityType>' + this.UI + '</' + nsHaulierModel + ':NationalityType>';
                     else
                         return '';
                 }
             },
             Stop: {
                 XML: function () {
-                    return '</' + nsCommon + ':Address>';
+                    return '</' + nsHaulierService + ':haulier>';
                 }
             }
         },
-        CommunicationMeans: {
+        _legalLocation_ns = {
             Count: 0,
             Start: {
                 XML: function () {
-                    return '<' + nsCommon + ':CommunicationMeans>';
+                    return '<' + nsHaulierService + ':legalLocation>';
                 }
             },
-            EmailAddress: {
+            Addressee: {
                 UI: null,
-                requiredInXMLSchema: false,
+                requiredInXMLSchema: true,
                 XML: function () {
                     if (this.UI)
-                        return '<' + nsCommon + ':EmailAddress type="type" usage="EmailAddress"' + this.UI + '</' + nsCommon + ':EmailAddress';
+                        return '<' + nsCommon + ':Addressee>' + this.UI + '</' + nsCommon + ':Addressee>';
                     else
                         return '';
                 }
             },
-            PhoneNumber: {
-                UI: null,
-                requiredInXMLSchema: false,
-                XML: function () {
-                    if (this.UI)
-                        return '<' + nsCommon + ':PhoneNumber type="type" usage="PhoneNumber">' + this.UI + '</' + nsCommon + ':PhoneNumber>';
-                    else
-                        return '';
+            Address: {
+                Count: 0,
+                Start: {
+                    XML: function () {
+                        return '<' + nsCommon + ':Address>';
+                    }
+                },
+                AddressLine: {
+                    UI: null,
+                    requiredInXMLSchema: true,
+                    XML: function () {
+                        if (this.UI)
+                            return '<' + nsCommon + ':AddressLines><' + nsCommon + ':AddressLine>' + this.UI + '</' + nsCommon + ':AddressLine></' + nsCommon + ':AddressLines>';
+                        else
+                            return '';
+                    }
+                },
+                Locality: {
+                    UI: null,
+                    requiredInXMLSchema: true,
+                    XML: function () {
+                        if (this.UI)
+                            return '<' + nsCommon + ':Locality>' + this.UI + '</' + nsCommon + ':Locality>';
+                        else
+                            return '';
+                    }
+                },
+                PostalCode: {
+                    UI: null,
+                    requiredInXMLSchema: true,
+                    XML: function () {
+                        if (this.UI)
+                            return '<' + nsCommon + ':PostalCode>' + this.UI + '</' + nsCommon + ':PostalCode>';
+                        else
+                            return '';
+                    }
+                },
+                CountryCode: {
+                    UI: null,
+                    requiredInXMLSchema: true,
+                    XML: function () {
+                        if (this.UI)
+                            return '<' + nsCommon + ':CountryCode>' + this.UI + '</' + nsCommon + ':CountryCode>';
+                        else
+                            return '';
+                    }
+                },
+                Stop: {
+                    XML: function () {
+                        return '</' + nsCommon + ':Address>';
+                    }
                 }
             },
-            FaxNumber: {
-                UI: null,
-                requiredInXMLSchema: false,
-                XML: function () {
-                    if (this.UI)
-                        return '<' + nsCommon + ':FaxNumber type="type" usage="FaxNumber"' + this.UI + '</' + nsCommon + ':FaxNumber';
-                    else
-                        return '';
+            CommunicationMeans: {
+                Count: 0,
+                Start: {
+                    XML: function () {
+                        return '<' + nsCommon + ':CommunicationMeans>';
+                    }
+                },
+                EmailAddress: {
+                    UI: null,
+                    requiredInXMLSchema: false,
+                    XML: function () {
+                        if (this.UI)
+                            return '<' + nsCommon + ':EmailAddress type="type" usage="EmailAddress"' + this.UI + '</' + nsCommon + ':EmailAddress';
+                        else
+                            return '';
+                    }
+                },
+                PhoneNumber: {
+                    UI: null,
+                    requiredInXMLSchema: false,
+                    XML: function () {
+                        if (this.UI)
+                            return '<' + nsCommon + ':PhoneNumber type="type" usage="PhoneNumber">' + this.UI + '</' + nsCommon + ':PhoneNumber>';
+                        else
+                            return '';
+                    }
+                },
+                FaxNumber: {
+                    UI: null,
+                    requiredInXMLSchema: false,
+                    XML: function () {
+                        if (this.UI)
+                            return '<' + nsCommon + ':FaxNumber type="type" usage="FaxNumber"' + this.UI + '</' + nsCommon + ':FaxNumber';
+                        else
+                            return '';
+                    }
+                },
+                Stop: {
+                    XML: function () {
+                        return '</' + nsCommon + ':CommunicationMeans>';
+                    }
                 }
             },
             Stop: {
                 XML: function () {
-                    return '</' + nsCommon + ':CommunicationMeans>';
+                    return '</' + nsHaulierService + ':legalLocation>';
                 }
             }
         },
-        Stop: {
-            XML: function () {
-                return '</' + nsHaulierService + ':legalLocation>';
-            }
-        }
-    },
-    _otherLocations_ns = {},
-    _applicationDate = null,
-    _errString = '';
+        _otherLocations_ns = {},
+        _applicationDate = null,
+        _errString = '';
 
     function bindUI(UiRef, UI, _prop) {
         if (UI && typeof UI === 'string') {
@@ -1877,8 +1952,8 @@ function createHaulier(nsHaulierService, nsHaulierModel, nsCommon) {
         },
         get_XML: function () {
             var wrap1 = '<' + nsHaulierService + ':createHaulier>',
-            wrap2 = '',
-            main = '';
+                wrap2 = '',
+                main = '';
             if (_haulier_ns.Count)
                 main += _haulier_ns.Start.XML() +
                 _haulier_ns.Id.XML() +
@@ -1919,7 +1994,7 @@ function initHaulier() {
     var h = createHaulier('nsHaulierService', 'nsHaulierModel', 'com');
     h.set_haulier_ns('CUSTOMER.CODE1', encode_utf8(CUSTOMER.CODE1), 'CUSTOMER.NAME', encode_utf8(CUSTOMER.NAME), 'CUSTOMER.COUNTRY', CUSTOMER.COUNTRY);
     var completare = (CUSTOMER.CCCADRESA) ? ',' + CUSTOMER.CCCADRESA : '',
-    adresaCompleta = encode_utf8(CUSTOMER.ADDRESS) + encode_utf8(completare);
+        adresaCompleta = encode_utf8(CUSTOMER.ADDRESS) + encode_utf8(completare);
     adresaCompleta = adresaCompleta.replace(',', '').replace('.', '');
     h.set_legalLocation_ns('SEDIU', 'SEDIU', 'CUSTOMER.ADDRESS', adresaCompleta, 'CUSTOMER.CITY', encode_utf8(CUSTOMER.CITY), 'CUSTOMER.ZIP', CUSTOMER.ZIP, 'ROU', 'ROU');
     h.set_applicationDate('CUSTOMER.CCCADERARETIR', CUSTOMER.CCCADERARETIR);
@@ -1940,130 +2015,130 @@ function initHaulier() {
 
 function createVehicle(tir, veh, com) {
     var _haulier_ns = {
-        Count: 0,
-        haulierId: {
-            UI: null,
-            requiredInXMLSchema: true,
-            XML: function () {
-                if (this.UI)
-                    return '<' + tir + ':haulierId>' + 'ROU/050/' + this.UI + '</' + tir + ':haulierId>';
-                else
-                    return '';
+            Count: 0,
+            haulierId: {
+                UI: null,
+                requiredInXMLSchema: true,
+                XML: function () {
+                    if (this.UI)
+                        return '<' + tir + ':haulierId>' + 'ROU/050/' + this.UI + '</' + tir + ':haulierId>';
+                    else
+                        return '';
+                }
             }
+        },
+        _vehicle_ns = {
+            Count: 0,
+            Start: {
+                XML: function () {
+                    return '<' + tir + ':vehicle>';
+                }
+            },
+            Make: {
+                UI: null,
+                requiredInXMLSchema: false,
+                XML: function () {
+                    if (this.UI)
+                        return '<' + veh + ':Make>' + this.UI + '</' + veh + ':Make>';
+                    else
+                        return '';
+                }
+            },
+            PayloadWeightMeasure: {
+                UI: null,
+                requiredInXMLSchema: false,
+                XML: function () {
+                    if (this.UI)
+                        return '<' + veh + ':PayloadWeightMeasure>' + this.UI + '</' + veh + ':PayloadWeightMeasure>';
+                    else
+                        return '';
+                }
+            },
+            Type: {
+                Count: 0,
+                Start: {
+                    XML: function () {
+                        return '<' + veh + ':Type>';
+                    }
+                },
+                TypeCode: {
+                    UI: null,
+                    requiredInXMLSchema: true,
+                    XML: function () {
+                        if (this.UI)
+                            return '<' + veh + ':TypeCode type="http://www.asktirweb.org/vehicle/type">' + this.UI + '</' + veh + ':TypeCode>';
+                        else
+                            return '';
+                    }
+                },
+                Stop: {
+                    XML: function () {
+                        return '</' + veh + ':Type>';
+                    }
+                }
+            },
+            RegistrationNumber: {
+                Count: 0,
+                Start: {
+                    XML: function () {
+                        return '<' + veh + ':RegistrationNumber>';
+                    }
+                },
+                Id: {
+                    UI: null,
+                    requiredInXMLSchema: true,
+                    XML: function () {
+                        if (this.UI)
+                            return '<' + com + ':Id>' + this.UI + '</' + com + ':Id>';
+                        else
+                            return '';
+                    }
+                },
+                Type: {
+                    UI: null,
+                    requiredInXMLSchema: true,
+                    XML: function () {
+                        if (this.UI)
+                            return '<' + com + ':Type>http://www.asktirweb.org/vehicle/registration-number</' + com + ':Type>';
+                        else
+                            return '';
+                    }
+                },
+                Stop: {
+                    XML: function () {
+                        return '</' + veh + ':RegistrationNumber>';
+                    }
+                }
+            },
+            ContractualRelationship: {
+                Count: 0,
+                Start: {
+                    XML: function () {
+                        return '<' + veh + ':ContractualRelationship>';
+                    }
+                },
+                Type: {
+                    UI: null,
+                    requiredInXMLSchema: true,
+                    XML: function () {
+                        if (this.UI)
+                            return '<' + com + ':Type>' + this.UI + '</' + com + ':Type>';
+                        else
+                            return '';
+                    }
+                },
+                Stop: {
+                    XML: function () {
+                        return '</' + veh + ':ContractualRelationship>';
+                    }
+                }
+            },
+            Stop: {
+                XML: function () {
+                    return '</' + tir + ':vehicle>';
+                }
+            },
         }
-    },
-    _vehicle_ns = {
-        Count: 0,
-        Start: {
-            XML: function () {
-                return '<' + tir + ':vehicle>';
-            }
-        },
-        Make: {
-            UI: null,
-            requiredInXMLSchema: false,
-            XML: function () {
-                if (this.UI)
-                    return '<' + veh + ':Make>' + this.UI + '</' + veh + ':Make>';
-                else
-                    return '';
-            }
-        },
-        PayloadWeightMeasure: {
-            UI: null,
-            requiredInXMLSchema: false,
-            XML: function () {
-                if (this.UI)
-                    return '<' + veh + ':PayloadWeightMeasure>' + this.UI + '</' + veh + ':PayloadWeightMeasure>';
-                else
-                    return '';
-            }
-        },
-        Type: {
-            Count: 0,
-            Start: {
-                XML: function () {
-                    return '<' + veh + ':Type>';
-                }
-            },
-            TypeCode: {
-                UI: null,
-                requiredInXMLSchema: true,
-                XML: function () {
-                    if (this.UI)
-                        return '<' + veh + ':TypeCode type="http://www.asktirweb.org/vehicle/type">' + this.UI + '</' + veh + ':TypeCode>';
-                    else
-                        return '';
-                }
-            },
-            Stop: {
-                XML: function () {
-                    return '</' + veh + ':Type>';
-                }
-            }
-        },
-        RegistrationNumber: {
-            Count: 0,
-            Start: {
-                XML: function () {
-                    return '<' + veh + ':RegistrationNumber>';
-                }
-            },
-            Id: {
-                UI: null,
-                requiredInXMLSchema: true,
-                XML: function () {
-                    if (this.UI)
-                        return '<' + com + ':Id>' + this.UI + '</' + com + ':Id>';
-                    else
-                        return '';
-                }
-            },
-            Type: {
-                UI: null,
-                requiredInXMLSchema: true,
-                XML: function () {
-                    if (this.UI)
-                        return '<' + com + ':Type>http://www.asktirweb.org/vehicle/registration-number</' + com + ':Type>';
-                    else
-                        return '';
-                }
-            },
-            Stop: {
-                XML: function () {
-                    return '</' + veh + ':RegistrationNumber>';
-                }
-            }
-        },
-        ContractualRelationship: {
-            Count: 0,
-            Start: {
-                XML: function () {
-                    return '<' + veh + ':ContractualRelationship>';
-                }
-            },
-            Type: {
-                UI: null,
-                requiredInXMLSchema: true,
-                XML: function () {
-                    if (this.UI)
-                        return '<' + com + ':Type>' + this.UI + '</' + com + ':Type>';
-                    else
-                        return '';
-                }
-            },
-            Stop: {
-                XML: function () {
-                    return '</' + veh + ':ContractualRelationship>';
-                }
-            }
-        },
-        Stop: {
-            XML: function () {
-                return '</' + tir + ':vehicle>';
-            }
-        },
-    }
     _errString = '';
 
     function bindUI(UiRef, UI, _prop) {
@@ -2119,12 +2194,14 @@ function createVehicle(tir, veh, com) {
         },
         get_XML: function () {
             var wrap1 = '<' + tir + ':createVehicle>',
-            wrap2 = '',
-            main = '';
+                wrap2 = '',
+                main = '';
             if (_haulier_ns.Count)
                 main += _haulier_ns.haulierId.XML();
 
             main += _vehicle_ns.Start.XML();
+
+            main += '<veh:InQuota>false</veh:InQuota>';
 
             if (_vehicle_ns.Count)
                 main += _vehicle_ns.Make.XML() +
@@ -2159,10 +2236,10 @@ function createVehicle(tir, veh, com) {
 function initVehicle() {
     var v = createVehicle('tir', 'veh', 'com');
     v.set_haulier_ns('CUSTOMER.CODE1', CUSTOMER.CODE1);
-    debugger;
-    v.set_vehicle_ns('TRUCKS.CCCCARMODEL', TRUCKS.CCCCARMODEL, 'TRUCKS.WEIGHT', TRUCKS.WEIGHT);
-    v.set_Type_ns('TRUCKS.CCCCARCLASS', X.SQL('SELECT CCCDESCEN FROM CCCCARCLASS WHERE CCCCARCLASS = ' + TRUCKS.CCCCARCLASS, null));
-    v.set_RegistrationNumber_ns('TRUCKS.TRUCKS', X.SQL('SELECT NAME FROM TRUCKS WHERE TRUCKS='+TRUCKS.TRUCKS + ' AND TRDR='+CUSTOMER.TRDR + ' AND COMPANY='+X.SYS.COMPANY, null), 'E', 'E');
+    //debugger;
+    v.set_vehicle_ns('TRUCKS.CCCCARMODEL', encode_utf8(X.SQL('SELECT CCCDESC FROM CCCCARMODEL WHERE CCCCARMODEL='+TRUCKS.CCCCARMODEL)), 'TRUCKS.WEIGHT', TRUCKS.WEIGHT);
+    v.set_Type_ns('TRUCKS.CCCCARCLASS', encode_utf8(X.SQL('SELECT CCCDESCEN FROM CCCCARCLASS WHERE CCCCARCLASS = ' + TRUCKS.CCCCARCLASS, null)));
+    v.set_RegistrationNumber_ns('TRUCKS.TRUCKS', encode_utf8(X.SQL('SELECT NAME FROM TRUCKS WHERE TRUCKS=' + TRUCKS.TRUCKS + ' AND TRDR=' + CUSTOMER.TRDR + ' AND COMPANY=' + X.SYS.COMPANY, null)), 'E', 'E');
     v.set_ContractualRelationship_ns('OWNERSHIP', 'OWNERSHIP');
 
     var mess = v.get_Messages();

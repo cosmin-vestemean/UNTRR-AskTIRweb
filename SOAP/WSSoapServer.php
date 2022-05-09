@@ -41,6 +41,15 @@ class WSSoapServer
         $this->log("authorizeAndCaptureTIRCarnetIssuanceTransaction", $params); // log
 
         // login and auth in s1, getting token for transaction
+        $properBranchIRU = $this->getTransferBranch($params);
+        $this->log("properBranchIRU", $properBranchIRU); // log
+        $clientID = $this->get_clientID_Sediu();
+        $details = $this->getDetailsS1WS($clientID, $properBranchIRU, -1, 'xyz132');
+        $properBranchS1 = $details['rows'][0]['branch'];
+        $this->log("properBranchS1", $properBranchS1); // log
+        $clientID = $this->get_clientID_Branch($properBranchS1);
+        $this->log("clientIDfromPropperBranch", $clientID); // log
+
         $clientID = $this->get_clientID_Sediu();
 
         // ------creaza factura in S1 din $params-------
@@ -482,8 +491,6 @@ class WSSoapServer
     {
         $this->log("sendTIRCarnetDespatchAdvice", $params); // log
         // ------creaza transfer in S1 din $params-------
-        // stdClass > array
-        $doc = $this->getTIRCarnetDespatchOrReceipt($params);
 
         // login and auth in s1 proper branch, getting token for transaction
         $properBranchIRU = $this->getTransferBranch($params);
@@ -492,10 +499,12 @@ class WSSoapServer
         $properBranchS1 = $details['rows'][0]['branch'];
         $clientID = $this->get_clientID_Branch($properBranchS1);
 
+        // stdClass > array
+        $doc = $this->getTIRCarnetDespatchOrReceipt($params);
         // array > transfer carnets json
-        $s1Inv = $this->phpArrayToJsonTransfer($clientID, $doc, false);
+        $s1Transf = $this->phpArrayToJsonTransfer($clientID, $doc, false);
         // send json to s1 and return newly created findoc
-        $findoc = $this->talkToS1WS($s1Inv)['id'];
+        $findoc = $this->talkToS1WS($s1Transf)['id'];
         // record findoc
         $this->debug('newly created findoc', $findoc);
 
