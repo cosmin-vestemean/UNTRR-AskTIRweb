@@ -1467,14 +1467,14 @@ function createHaulierEnvelope() {
             '</soap:Envelope>',
             xmlDoc = new ActiveXObject('Microsoft.XMLDOM');
         xmlDoc.async = 'false';
-        xmlDoc.loadXML(env);
+        xmlDoc.loadXML(env.replace(/\r\n/g, ''));
         var parseErr = xmlDoc.parseError;
         if (parseErr.errorCode != 0) {
             X.WARNING(parseErr.reason);
             return 'xmlError';
         }
 
-        var ret = xmlDoc.xml;
+        var ret = xmlDoc.xml.replace(/\r\n/g, '').replace('^M', '');
         if (debugg_mode)
             X.WARNING(ret);
         return ret;
@@ -1498,14 +1498,14 @@ function createVehicleEnvelope() {
         '</soap:Envelope>',
         xmlDoc = new ActiveXObject('Microsoft.XMLDOM');
     xmlDoc.async = 'false';
-    xmlDoc.loadXML(env);
+    xmlDoc.loadXML(env.replace(/\r\n/g, ''));
     var parseErr = xmlDoc.parseError;
     if (parseErr.errorCode != 0) {
         X.WARNING(parseErr.reason);
         return 'xmlError';
     }
 
-    var ret = xmlDoc.xml;
+    var ret = xmlDoc.xml.replace(/\r\n/g, '').replace('^M', '');
     if (debugg_mode)
         X.WARNING(ret);
     return ret;
@@ -1528,7 +1528,7 @@ function loadSecureHeader() {
 
 function sendHaulierToIRU(url) {
     var xmlHttp = createRequest(),
-        soap = createHaulierEnvelope(),
+        soap = createHaulierEnvelope().replace(/\r\n/g, '').replace('^M', ''),
         msg = '';
     if (soap == '1899') {
         X.WARNING('Nu s-a transmis nimic.\nVerificati data admitere TIR.');
@@ -1567,19 +1567,17 @@ function sendHaulierToIRU(url) {
             //}
         }
     };
-    xmlHttp.setRequestHeader("Content-Type", 'application/soap+xml;charset=UTF-8;action="' + haulierServiceProd + '/createHaulier"');
-    //debugger;
-    //xmlHttp.setRequestHeader("Content-Length", lengthInUtf8Bytes(soap));
     xmlHttp.setRequestHeader("Host", hostDemo);
-    xmlHttp.setRequestHeader("Connection", "Keep-Alive");
     xmlHttp.setRequestHeader("Accept-Encoding", "identity");
-    xmlHttp.setRequestHeader("User-Agent", "Apache-HttpClient/4.5.5 (Java/12.0.1)");
+    xmlHttp.setRequestHeader("Content-Type", 'application/xml;charset=UTF-8;action="' + haulierServiceProd + '/createHaulier"');
+    xmlHttp.setRequestHeader("Content-Length", lengthInUtf8Bytes(soap));
+    xmlHttp.setRequestHeader("Connection", "Keep-Alive");
     xmlHttp.send(soap);
 }
 
 function sendVehicleToIRU(url) {
     var xmlHttp = createRequest(),
-        soap = createVehicleEnvelope(),
+        soap = createVehicleEnvelope().replace(/\r\n/g, '').replace(/\n/g, '').replace(/\r/g, '').replace('^M', ''),
         msg = '',
         nr_linie = TRUCKS.RECNO,
         nrVeh = X.SQL('SELECT NAME FROM TRUCKS WHERE TRUCKS=' + TRUCKS.TRUCKS + ' AND TRDR=' + CUSTOMER.TRDR, null);
@@ -1618,13 +1616,10 @@ function sendVehicleToIRU(url) {
             //}
         }
     };
-    xmlHttp.setRequestHeader("Content-Type", 'application/soap+xml;charset=UTF-8;action="' + haulierServiceProd + '/createVehicle"');
-    //debugger;
-    //xmlHttp.setRequestHeader("Content-Length", lengthInUtf8Bytes(soap));
     xmlHttp.setRequestHeader("Host", hostDemo);
-    xmlHttp.setRequestHeader("Connection", "Keep-Alive");
     xmlHttp.setRequestHeader("Accept-Encoding", "identity");
-    xmlHttp.setRequestHeader("User-Agent", "Apache-HttpClient/4.5.5 (Java/12.0.1)");
+    xmlHttp.setRequestHeader("Content-Type", 'application/soap+xml;charset=UTF-8;action="' + haulierServiceProd + '/createVehicle"');
+    xmlHttp.setRequestHeader("Content-Length", lengthInUtf8Bytes(soap));
     xmlHttp.send(soap);
 }
 
