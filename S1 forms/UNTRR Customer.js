@@ -1120,7 +1120,7 @@ function EXECCOMMAND(cmd) {
     }
 
     if (cmd == '20201218') {
-        debugger;
+        //debugger;
         sendHaulierToIRU(haulierServiceDemo);
 
         //TODO: check if the response is ok
@@ -1567,15 +1567,25 @@ function sendHaulierToIRU(url) {
             //}
         }
     };
-    xmlHttp.setRequestHeader("Host", hostDemo);
-    xmlHttp.setRequestHeader("Accept-Encoding", "identity");
-    xmlHttp.setRequestHeader("Content-Type", 'application/xml;charset=UTF-8;action="' + haulierServiceProd + '/createHaulier"');
-    xmlHttp.setRequestHeader("Content-Length", lengthInUtf8Bytes(soap));
-    xmlHttp.setRequestHeader("Connection", "Keep-Alive");
+    xmlHttp.setRequestHeader("Host", "wsdemo.asktirweb.org");
+    //xmlHttp.setRequestHeader("Accept-Encoding", "identity");
+    //xmlHttp.setRequestHeader("Content-Type", 'application/xml;charset=UTF-8;action="' + haulierServiceProd + '/createHaulier"');
+    //xmlHttp.setRequestHeader("Content-Length", lengthInUtf8Bytes(soap));
+    xmlHttp.setRequestHeader("Content-Length", soap.length);
+    //xmlHttp.setRequestHeader("Connection", "Keep-Alive");
     xmlHttp.send(soap);
 }
 
 function sendVehicleToIRU(url) {
+    var WinHttpReq = new ActiveXObject("WinHttp.WinHttpRequest.5.1");
+    WinHttpReq.Open("POST", url, true);
+    soap = createVehicleEnvelope().replace(/\r\n/g, '').replace(/\n/g, '').replace(/\r/g, '').replace('^M', ''),
+    WinHttpReq.Send(soap);
+    WinHttpReq.WaitForResponse();
+    X.WARNING(WinHttpReq.ResponseText);
+}
+
+function sendVehicleToIRU_msxml2(url) {
     var xmlHttp = createRequest(),
         soap = createVehicleEnvelope().replace(/\r\n/g, '').replace(/\n/g, '').replace(/\r/g, '').replace('^M', ''),
         msg = '',
@@ -1589,7 +1599,24 @@ function sendVehicleToIRU(url) {
     xmlHttp.open("POST", url, true);
     xmlHttp.onreadystatechange = function () {
         if (xmlHttp && xmlHttp.readyState && xmlHttp.readyState == 4) {
-            //debugger;
+            debugger;
+            
+            var convertResponseBodyToText = function (binary) {
+                var result = "";
+                var arrResponseBody = binary.toArray();
+                var length = arrResponseBody.length;
+                for (var i = 0; i < length; i++) {
+                    result += String.fromCharCode(arrResponseBody[i]);
+                }
+                return result;
+            };
+
+            response = convertResponseBodyToText(xmlHttp.responseBody);
+            
+            if (debugg_mode)
+                X.WARNING(response);
+
+
             xmlResponse = xmlHttp.responseXML;
             X.RUNSQL("INSERT INTO CCCXML2IRU (SENDER, XML, RESPONSE, INSDATE, TRDR, CONNECTIONSTATUS) VALUES (2, '" + soap.replace(/"/g, "**") + "', '" + xmlResponse.text.replace(/"/g, "**") + "', getDate(), " + CUSTOMER.TRDR + ", " + xmlHttp.status + ")", null);
             //The provided entity already exist
@@ -1616,10 +1643,11 @@ function sendVehicleToIRU(url) {
             //}
         }
     };
-    xmlHttp.setRequestHeader("Host", hostDemo);
-    xmlHttp.setRequestHeader("Accept-Encoding", "identity");
-    xmlHttp.setRequestHeader("Content-Type", 'application/soap+xml;charset=UTF-8;action="' + haulierServiceProd + '/createVehicle"');
-    xmlHttp.setRequestHeader("Content-Length", lengthInUtf8Bytes(soap));
+    xmlHttp.setRequestHeader("Host", "wsdemo.asktirweb.org");
+    //xmlHttp.setRequestHeader("Accept-Encoding", "identity");
+    //xmlHttp.setRequestHeader("Content-Type", 'application/soap+xml;charset=UTF-8;action="' + haulierServiceProd + '/createVehicle"');
+    //xmlHttp.setRequestHeader("Content-Length", lengthInUtf8Bytes(soap));
+    xmlHttp.setRequestHeader("Content-Length", soap.length);
     xmlHttp.send(soap);
 }
 
@@ -1703,11 +1731,13 @@ function createRequest() {
 }
 
 function encode_utf8(s) {
-    return encodeURIComponent(s);
+    //return encodeURIComponent(s);
+    return escape(s);
 }
 
 function decode_utf8(s) {
-    return decodeURIComponent(s);
+    //return decodeURIComponent(s);
+    return unescape(s);
 }
 
 //end
@@ -2232,7 +2262,7 @@ function initVehicle() {
     var v = createVehicle('tir', 'veh', 'com');
     v.set_haulier_ns('CUSTOMER.CODE1', CUSTOMER.CODE1);
     //debugger;
-    v.set_vehicle_ns('TRUCKS.CCCCARMODEL', encode_utf8(X.SQL('SELECT CCCDESC FROM CCCCARMODEL WHERE CCCCARMODEL='+TRUCKS.CCCCARMODEL)), 'TRUCKS.WEIGHT', TRUCKS.WEIGHT);
+    v.set_vehicle_ns('TRUCKS.CCCCARMODEL', encode_utf8(X.SQL('SELECT CCCDESC FROM CCCCARMODEL WHERE CCCCARMODEL=' + TRUCKS.CCCCARMODEL)), 'TRUCKS.WEIGHT', TRUCKS.WEIGHT);
     v.set_Type_ns('TRUCKS.CCCCARCLASS', encode_utf8(X.SQL('SELECT CCCDESCEN FROM CCCCARCLASS WHERE CCCCARCLASS = ' + TRUCKS.CCCCARCLASS, null)));
     v.set_RegistrationNumber_ns('TRUCKS.TRUCKS', encode_utf8(X.SQL('SELECT NAME FROM TRUCKS WHERE TRUCKS=' + TRUCKS.TRUCKS + ' AND TRDR=' + CUSTOMER.TRDR + ' AND COMPANY=' + X.SYS.COMPANY, null)), 'E', 'E');
     v.set_ContractualRelationship_ns('OWNERSHIP', 'OWNERSHIP');
